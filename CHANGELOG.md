@@ -1,5 +1,10 @@
 # Historique
 
+## 1.3.0 — 2026-10-11
+- Le Labo (lien dans les réglages) : dix idées pour la suite, du conte de Hamelin à l'épopée de 1815, chacune avec une vignette animée
+- Le décor (rues, immeubles, mobilier) est pré-calculé en une seule image : le jeu est plus fluide
+- Le zoom ne recule qu'à partir d'une trentaine de rats, jamais deux paliers de suite, et le travelling dure cinq secondes
+
 ## 1.2.0 — 2026-10-11
 - Le zoom suit l'armée : tout près de Pierre quand il est seul, de plus en plus loin à mesure que les rats arrivent (un travelling doux)
 - Des immeubles haussmanniens, sans détails de plus : rez-de-chaussée à refends et arcades, hautes portes-fenêtres alignées, balcons filants au 2e et au 5e, corniche, comble à la Mansart et ses lucarnes, la même hauteur le long d'un îlot

@@ -5,13 +5,13 @@
    Coordonnées monde en pixels du jeu (1 px = 5 cm, une case = 60 px). La
    vue est rendue en pixels du jeu dans un petit canvas, agrandi d'un
    facteur entier (pixels nets). */
-import { PAL } from './palette.js?v=1.2.0';
-import { CELL } from './scale.js?v=1.2.0';
-import { makeScene } from './scene.js?v=1.2.0';
-import { drawPierre, drawNote } from './sprites.js?v=1.2.0';
-import { createSwarm } from './swarm.js?v=1.2.0';
-import { PROP_TYPES, propSprite } from './props.js?v=1.2.0';
-import { hash } from './city.js?v=1.2.0';
+import { PAL } from './palette.js?v=1.3.0';
+import { CELL } from './scale.js?v=1.3.0';
+import { makeScene } from './scene.js?v=1.3.0';
+import { drawPierre, drawNote } from './sprites.js?v=1.3.0';
+import { createSwarm } from './swarm.js?v=1.3.0';
+import { PROP_TYPES, propSprite } from './props.js?v=1.3.0';
+import { hash } from './city.js?v=1.3.0';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const PIERRE_R = 5;
@@ -20,11 +20,12 @@ const TRACE_LIFE = 150;               // s : la neige recouvre les traces
 const TRACE_CAP = 60000;              // traces gardées au plus (tampon circulaire)
 // Hauteur visée de la vue, en pixels du jeu : rapprochée quand Pierre est
 // seul, de plus en plus large à mesure que l'armée grossit (voir viewHeight)
-const VIEW_NEAR = 250, VIEW_FAR = 640, ARMY_FAR = 3000;
+const VIEW_NEAR = 250, VIEW_FAR = 640, ARMY_NEAR = 30, ARMY_FAR = 3000;
 
 export function createGame({ canvas, city, save = null, onRats = () => {}, onMessage = () => {}, testRats = 0 }) {
   const scene = makeScene(city);
   const occlusion = scene.depthMap();
+  scene.buildDecor();
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   let vw = 320, vh = 240, factor = 3, zoomPref = 0;
 
@@ -239,7 +240,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     updateParticles(dt);
     fadeTraces();
     zoomTimer += dt;
-    if (zoomTimer > 1 && !attract) { zoomTimer = 0; checkZoom(); }
+    if (zoomTimer > 6 && !attract) { zoomTimer = 0; checkZoom(); } // jamais deux paliers coup sur coup
   }
 
   // Le point (x, y), relatif au coin avant d'une colonne de hauteur h, est-il
@@ -281,18 +282,33 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
         draw: (g, x, y) => drawPierre(g, x, y, { pose: playing ? 'play' : pierre.moving ? 'walk' : 'stand', t: playing ? time : pierre.t, dir: pierre.dir, silhouette: true }),
       });
     }
-    // Une maison qui cache Pierre s'efface à moitié
+    // Le décor pré-calculé : une seule image pour le sol, les maisons, le mobilier
+    scene.drawDecor(ctx, cx, cy, vw, vh);
+    // Autour de Pierre, on redessine en détail (dans un rectangle) : lui, trié
+    // parmi les maisons, et les maisons qui le cachent, estompées
     const psx = pierre.x - pierre.y, psy = (pierre.x + pierre.y) / 2 - 12;
     const pk = Math.floor(pierre.x / CELL) + Math.floor(pierre.y / CELL);
     const faded = new Set();
-    const fade = attract ? null : (i, j) => {
-      if (i + j <= pk) return 1;
-      const [fx, fy] = scene.front(i, j);
-      if (!hidesPoint(psx - fx, psy - fy, city.at(i, j) * 60 + 34)) return 1;
-      faded.add(j * city.w + i + 1);
-      return 0.32;
-    };
-    scene.draw(ctx, cx, cy, vw, vh, sprites, { fade });
+    if (!attract) {
+      let rx0 = Math.floor(psx - cx) - 14, ry0 = Math.floor(psy - cy) - 22, rx1 = rx0 + 30, ry1 = ry0 + 40;
+      for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
+        const n = city.at(i, j);
+        if (n <= 0 || i + j <= pk) continue;
+        const [fx, fy] = scene.front(i, j);
+        if (!hidesPoint(psx - fx, psy - fy, n * 60 + 34)) continue;
+        faded.add(j * city.w + i + 1);
+        rx0 = Math.min(rx0, fx - CELL - cx); rx1 = Math.max(rx1, fx + CELL + 1 - cx);
+        ry0 = Math.min(ry0, fy - CELL / 2 - n * 60 - 34 - 24 - cy); ry1 = Math.max(ry1, fy + 1 - cy);
+      }
+      rx0 = Math.max(0, rx0); ry0 = Math.max(0, ry0); rx1 = Math.min(vw, rx1); ry1 = Math.min(vh, ry1);
+      if (rx1 > rx0 && ry1 > ry0) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(rx0, ry0, rx1 - rx0, ry1 - ry0); ctx.clip();
+        ctx.translate(rx0, ry0);
+        scene.draw(ctx, cx + rx0, cy + ry0, rx1 - rx0, ry1 - ry0, sprites, { fade: (i, j) => (faded.has(j * city.w + i + 1) ? 0.32 : 1) });
+        ctx.restore();
+      }
+    }
     // Pierre caché par une maison : sa silhouette tramée (avant les rats, qui ne comptent pas)
     if (!attract) xray(Math.round(pierre.x - pierre.y - cx), Math.round((pierre.x + pierre.y) / 2 - cy));
     if (!attract) {
@@ -406,7 +422,8 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
 
   // ─── Le zoom suit l'armée : un facteur entier (pixels nets), qui recule ───
   function viewHeight() {
-    const k = Math.min(1, Math.log10(1 + army) / Math.log10(1 + ARMY_FAR));
+    // rien ne bouge avant ARMY_NEAR rats, puis on recule en suivant le logarithme
+    const k = Math.min(1, Math.max(0, Math.log10(Math.max(1, army) / ARMY_NEAR) / Math.log10(ARMY_FAR / ARMY_NEAR)));
     return VIEW_NEAR + (VIEW_FAR - VIEW_NEAR) * k;
   }
   function factorFor(dw, dh) {
@@ -428,7 +445,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     canvas.style.transformOrigin = `${psx}px ${psy}px`;
     canvas.style.transform = `scale(${old / factor})`;
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      canvas.style.transition = 'transform 1.6s ease-in-out';
+      canvas.style.transition = 'transform 5s cubic-bezier(.45, 0, .25, 1)';
       canvas.style.transform = 'scale(1)';
     }));
   }

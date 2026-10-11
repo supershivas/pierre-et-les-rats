@@ -17,9 +17,9 @@
    (a + b) / 2 − z. Dans l'image d'une colonne, le coin avant au sol est en
    (CELL, H − 1). Face A : le mur du côté +y (à gauche à l'écran, éclairé) ;
    face B : le mur du côté +x (à droite, à l'ombre). */
-import { RGB } from './palette.js?v=1.2.0';
-import { CELL, FLOOR, ROOF } from './scale.js?v=1.2.0';
-import { hash } from './city.js?v=1.2.0';
+import { RGB } from './palette.js?v=1.3.0';
+import { CELL, FLOOR, ROOF } from './scale.js?v=1.3.0';
+import { hash } from './city.js?v=1.3.0';
 
 const CHIMNEY_H = 16;
 export const COLUMN_W = CELL * 2 + 1;

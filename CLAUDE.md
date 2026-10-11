@@ -24,10 +24,12 @@ dans la neige. L'armée grossit à mesure qu'il joue.
 Porte-fenêtre : 12 × 40 px. Arcade du rez-de-chaussée : 28 × 48 px. Module
 d'immeuble : une case de 60 × 60 px, un étage de 60 px (3 m), comble de
 34 px, 7 niveaux au plus. Réverbère : 11 × 70 px (3,5 m).
-La vue suit l'armée (v1.2.0) : environ 250 px du jeu en hauteur quand
-Pierre est seul, jusqu'à 640 px vers 3 000 rats (`VIEW_NEAR`, `VIEW_FAR`,
-`viewHeight` dans game.js), toujours agrandie d'un facteur entier ; quand le
-facteur change, une transformation CSS fait le travelling (`checkZoom`).
+La vue suit l'armée : environ 250 px du jeu en hauteur jusqu'à 30 rats,
+puis elle s'élargit (logarithme) jusqu'à 640 px vers 3 000 rats
+(`VIEW_NEAR`, `VIEW_FAR`, `ARMY_NEAR`, `ARMY_FAR`, `viewHeight` dans
+game.js), toujours agrandie d'un facteur entier ; quand le facteur change,
+une transformation CSS fait un travelling de 5 s (`checkZoom`, vérifié
+toutes les 6 s : jamais deux paliers coup sur coup).
 Pierre n'est qu'**une silhouette noire** (`silhouette: true` de `drawPierre`).
 
 ### Palette du jeu (js/palette.js, variables --g-* de css/style.css)
@@ -98,7 +100,13 @@ planche gardent les tokens du design system.
 - `js/ground.js` : la neige des rues (une grande image), ombres portées,
   congères, bouches d'égout ; traces imprimées et effacées.
 - `js/scene.js` : tri arrière → avant des colonnes et des sprites, partagé
-  par le jeu et l'atelier ; `depthMap()`, le tampon de profondeur des
+  par le jeu et l'atelier ; **le décor pré-calculé** (v1.3.0, `buildDecor`,
+  `drawDecor`) : sol, maisons et mobilier dans une seule image (en
+  coordonnées du tampon de profondeur), où les traces se recopient
+  (`ground.mirror`, sauf sous une maison : masque `covered`). Le jeu ne
+  redessine en détail qu'un rectangle autour de Pierre (lui, trié parmi
+  les maisons, et celles qui le cachent, estompées) ; l'atelier garde le
+  dessin colonne par colonne ; `depthMap()`, le tampon de profondeur des
   maisons en écran monde (calculé une fois : l'indice de la colonne la plus
   en avant par pixel) qui cache les rats, sauf derrière une maison estompée.
 - `js/sprites.js` : Pierre, rat, notes, en tableaux de pixels.
@@ -108,14 +116,20 @@ planche gardent les tokens du design system.
   démolir un étage ou un objet, point de départ, mobilier, nouveau
   quartier, publier).
 - `echelle.html`, `js/echelle.js` : la planche d'échelle.
+- `labo.html`, `js/labo.js`, `css/labo.css` : le Labo (créé à la demande de
+  Jérôme, v1.3.0). Dix idées de suite en quatre sujets (le conte de
+  Hamelin, l'Empereur des rats, Paris hiver 1815, les airs de la flûte) ;
+  A = le jeu d'aujourd'hui. Chaque idée : un titre, une phrase, une
+  vignette animée (vue de face, palette du jeu, fonctions de `ART`) et trois
+  colonnes (le récit, le jeu, ce que ça demande). Ajouter une idée = une
+  entrée dans `TOPICS` et sa vignette. Lien « Labo » (fiole) dans les
+  réglages et dans l'en-tête de l'atelier.
 - `scripts/stamp-version.mjs` : estampille `?v=` sur imports et feuilles de
   style ; **à lancer après chaque changement de `version.json`** (GitHub
   Pages garde 10 min de cache).
 
 ## Exceptions aux conventions
 
-- Atelier sans Labo : l'app n'a pas de Labo (app secondaire), donc pas
-  d'icône fiole dans l'en-tête de l'atelier.
 - L'Atelier publie avec l'API « contents » de GitHub (un seul fichier,
   `data/ville.json`), pas l'API des arbres comme Kingvi.
 
@@ -133,7 +147,8 @@ planche gardent les tokens du design system.
 - Performances (Chromium sans carte graphique, vue 1280 × 760) : 3 000
   rats → simulation 4,4 ms, rendu 9,7 ms (7,8 ms sans rats). Un drawImage
   par rat coûtait 12 ms de plus ; un envoi du tampon par diagonale, encore
-  plus. Ne pas revenir en arrière. v1.2.0 : les immeubles plus hauts
-  coûtent quelques ms de plus (rendu ~13 ms à 3 000 rats sans carte
-  graphique) ; la nuée elle-même ~2 ms (`pierreStats().ms.rats`).
+  plus. Ne pas revenir en arrière. v1.3.0, décor pré-calculé : rendu
+  ~3,7 ms avec peu de rats (9,7 avant), ~10,7 ms à 3 000 rats (13 avant) ;
+  la nuée elle-même ~2 ms (`pierreStats().ms.rats`). Mémoire : le décor
+  (~2 640 × 1 860 px) plus le masque et le tampon de profondeur.
 - Le titre utilise IM Fell English (Google Fonts), propre au jeu.

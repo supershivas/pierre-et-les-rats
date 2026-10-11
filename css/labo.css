@@ -1,0 +1,56 @@
+/* Le labo (labo.html) : en-tête couleur d'accent, « LABO » encadré ; écran à
+   hauteur fixe, seule la variante défile. Bureau : les sujets dans la marge
+   de gauche, chacun déplie ses variantes. Mobile : sujets en puces, variantes
+   dans une barre en bas. */
+.labo { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--bg); }
+.labo-bar { background: var(--accent); border-bottom: 0; }
+.labo-bar .brand-name, .labo-bar .icon-btn { color: #fff; }
+.labo-bar .brand-mark { background: rgba(255,255,255,.18); color: #fff; }
+.labo-badge {
+  flex: none; color: #fff; border: 1px solid rgba(255,255,255,.85); border-radius: 3px;
+  padding: 2px 8px; font-family: var(--font-mono); font-size: .75rem; letter-spacing: .3em; text-transform: uppercase;
+}
+@media (hover: hover) { .labo-bar .icon-btn:hover { background: rgba(255,255,255,.14); color: #fff; } .labo-bar .brand:hover .brand-name { color: #fff; } }
+
+.labo-body { flex: 1; min-height: 0; display: flex; }
+.labo-menu { width: 300px; flex: none; overflow-y: auto; padding: 12px 8px; border-right: 1px solid var(--border); background: var(--card-bg); }
+.topic { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 10px; border: 0; border-radius: var(--radius-md); background: none; font: inherit; font-weight: 500; text-align: left; color: var(--text-primary); cursor: pointer; }
+.topic i { font-size: 18px; color: var(--text-muted); }
+.topic .count { margin-left: auto; font-family: var(--font-mono); font-size: .8rem; color: var(--text-muted); }
+.topic.on { background: var(--hover-bg); }
+.variants { list-style: none; padding: 2px 0 8px 18px; display: flex; flex-direction: column; gap: 2px; }
+.variant { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 8px; border: 0; border-radius: var(--radius-md); background: none; font: inherit; font-size: .9rem; text-align: left; color: var(--text-secondary); cursor: pointer; }
+.letter { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--border); font-family: var(--font-mono); font-size: .85rem; color: var(--text-primary); background: var(--card-bg); position: relative; }
+.variant.on { color: var(--text-primary); background: var(--hover-bg); }
+.variant.on .letter, .bottom-letter.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (hover: hover) { .topic:hover, .variant:hover { background: var(--hover-bg); } }
+
+.labo-view { flex: 1; min-width: 0; overflow-y: auto; padding: 20px 24px 32px; }
+.v-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.v-head .letter { width: 34px; height: 34px; font-size: 1rem; background: var(--accent); border-color: var(--accent); color: #fff; }
+.v-head h1 { font-family: var(--font-title); font-size: 1.45rem; line-height: 1.2; }
+.v-tag { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 2px 8px; }
+.v-pitch { font-size: 1.02rem; color: var(--text-secondary); line-height: 1.5; max-width: 760px; margin: 6px 0 16px; }
+.v-art { background: #05070c; border-radius: var(--radius-lg); overflow: hidden; max-width: 960px; }
+.v-art canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+.v-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; max-width: 960px; }
+.v-col { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; }
+.v-col h2 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 6px; }
+.v-col p { font-size: .9rem; line-height: 1.45; color: var(--text-secondary); }
+.v-hint { margin-top: 14px; font-size: .8rem; color: var(--text-muted); }
+
+.labo-chips, .labo-bottom { display: none; }
+
+@media (max-width: 768px) {
+  .labo-menu { display: none; }
+  .labo-view { padding: 14px 14px 20px; }
+  .v-cols { grid-template-columns: 1fr; }
+  .labo-chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px; background: var(--card-bg); border-bottom: 1px solid var(--border); flex: none; }
+  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); font: inherit; font-size: .85rem; white-space: nowrap; cursor: pointer; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .labo-bottom { display: flex; align-items: center; gap: 6px; flex: none; padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--card-bg); border-top: 1px solid var(--border); }
+  .bottom-letters { display: flex; gap: 4px; }
+  .bottom-letter { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); font-family: var(--font-mono); cursor: pointer; }
+  .bottom-title { flex: 1; min-width: 0; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+  .bottom-nav { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+}

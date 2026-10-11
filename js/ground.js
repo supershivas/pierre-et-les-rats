@@ -2,9 +2,9 @@
    grande image (une case = un losange de 120 × 60 px). Les traces de pas s'y
    impriment pixel par pixel ; la neige qui tombe les recouvre peu à peu
    (on repeint la couleur d'origine, que `colorAt` sait retrouver). */
-import { RGB, PAL } from './palette.js?v=1.2.0';
-import { CELL, FLOOR } from './scale.js?v=1.2.0';
-import { hash } from './city.js?v=1.2.0';
+import { RGB, PAL } from './palette.js?v=1.3.0';
+import { CELL, FLOOR } from './scale.js?v=1.3.0';
+import { hash } from './city.js?v=1.3.0';
 
 export function makeGround(city) {
   const W = (city.w + city.h) * CELL, H = (city.w + city.h) * CELL / 2 + 2;
@@ -75,6 +75,7 @@ export function makeGround(city) {
     if (city.at(Math.floor(wx / CELL), Math.floor(wy / CELL)) !== 0) return null;
     ctx.fillStyle = PAL[key];
     ctx.fillRect(sx, sy, 1, 1);
+    if (api.mirror) api.mirror(sx, sy, PAL[key]);
     return [sx, sy];
   }
   function restore(gx, gy) {
@@ -83,8 +84,11 @@ export function makeGround(city) {
     if (!key) return;
     ctx.fillStyle = PAL[key];
     ctx.fillRect(gx, gy, 1, 1);
+    if (api.mirror) api.mirror(gx, gy, PAL[key]);
   }
 
   paint();
-  return { canvas, ox, W, H, paint, stamp, restore, colorAt };
+  // mirror(gx, gy, couleur) : recopie une trace ailleurs (le décor pré-calculé, scene.js)
+  const api = { canvas, ox, W, H, paint, stamp, restore, colorAt, mirror: null };
+  return api;
 }

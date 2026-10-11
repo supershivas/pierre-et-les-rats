@@ -2,14 +2,14 @@
    enregistré tout de suite dans ce navigateur (le brouillon, que le jeu lit
    et signale), puis publié d'un geste dans le dépôt (data/ville.json, un
    commit sur main par l'API de GitHub, avec un jeton gardé ici). */
-import { makeCity, cityToData, generateQuarter } from './city.js?v=1.2.0';
-import { loadPublished, readDraft, writeDraft, sameCity, formatCity } from './city-store.js?v=1.2.0';
-import { makeScene } from './scene.js?v=1.2.0';
-import { CELL, ROOF, MAX_FLOORS } from './scale.js?v=1.2.0';
-import { PROP_TYPES, propSprite } from './props.js?v=1.2.0';
-import { PAL } from './palette.js?v=1.2.0';
-import { keyIs, stopTypeahead } from './keys.js?v=1.2.0';
-import { drawPierre } from './sprites.js?v=1.2.0';
+import { makeCity, cityToData, generateQuarter } from './city.js?v=1.3.0';
+import { loadPublished, readDraft, writeDraft, sameCity, formatCity } from './city-store.js?v=1.3.0';
+import { makeScene } from './scene.js?v=1.3.0';
+import { CELL, ROOF, MAX_FLOORS } from './scale.js?v=1.3.0';
+import { PROP_TYPES, propSprite } from './props.js?v=1.3.0';
+import { PAL } from './palette.js?v=1.3.0';
+import { keyIs, stopTypeahead } from './keys.js?v=1.3.0';
+import { drawPierre } from './sprites.js?v=1.3.0';
 
 const REPO = 'supershivas/pierre-et-les-rats', BRANCH = 'main', PATH = 'data/ville.json';
 const TOKEN_KEY = 'pierre:gh-token';

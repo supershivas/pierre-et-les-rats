@@ -3,8 +3,8 @@
    data/ville.json (« props » : [type, x, y, variante]) et placés dans
    l'atelier. Chaque objet est dessiné une fois dans un petit canvas, dans la
    palette du jeu ; les réverbères éclairent la nuit (game.js). */
-import { PAL } from './palette.js?v=1.2.0';
-import { hash, rng } from './city.js?v=1.2.0';
+import { PAL } from './palette.js?v=1.3.0';
+import { hash, rng } from './city.js?v=1.3.0';
 
 export const PROP_TYPES = {
   lamp:    { label: 'Réverbère', icon: 'ti-bulb', r: 2, light: true },

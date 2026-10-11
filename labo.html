@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#C0392B"/>
+<title>Labo — Pierre et les rats</title>
+<link rel="icon" href="favicon-labo.png" sizes="32x32" type="image/png"/>
+<link rel="icon" href="favicon-labo.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css"/>
+<link rel="stylesheet" href="css/style.css?v=1.3.0"/>
+<link rel="stylesheet" href="css/labo.css?v=1.3.0"/>
+<link rel="stylesheet" href="mobile.css?v=1.3.0"/>
+</head>
+<body class="labo-page">
+<!-- Le labo : on y compare des pistes sans rien changer au jeu. Une variante à
+     la fois ; A est toujours ce que fait le jeu aujourd'hui. -->
+<div class="labo">
+<header class="topbar labo-bar safe-top">
+  <a class="brand" href="./" title="Revenir au jeu">
+    <span class="brand-mark"><i class="ti ti-music" aria-hidden="true"></i></span>
+    <span class="brand-name">Pierre et les rats</span>
+  </a>
+  <span class="labo-badge">Labo</span>
+  <div class="topbar-actions">
+    <a class="icon-btn icon-only" href="atelier.html" title="L'atelier" aria-label="Atelier">
+      <i class="ti ti-brush" aria-hidden="true"></i>
+    </a>
+    <a class="icon-btn icon-only" href="./#reglages" title="Réglages" aria-label="Réglages">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+    </a>
+  </div>
+</header>
+<nav id="chips" class="labo-chips" aria-label="Sujets"></nav>
+<div class="labo-body">
+  <aside id="menu" class="labo-menu" aria-label="Sujets et variantes"></aside>
+  <main id="view" class="labo-view" aria-live="polite"></main>
+</div>
+<nav id="bottom" class="labo-bottom" aria-label="Variantes"></nav>
+</div>
+<script type="module" src="js/labo.js?v=1.3.0"></script>
+</body>
+</html>

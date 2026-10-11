@@ -1,20 +1,26 @@
 /* La scène : le sol, puis colonnes d'immeubles et personnages triés de
    l'arrière vers l'avant (somme des cases x + y). Partagée par le jeu et
    l'atelier. Coordonnées « écran monde » : x = wx − wy, y = (wx + wy) / 2. */
-import { CELL, FLOOR } from './scale.js?v=1.2.0';
-import { renderColumn } from './buildings.js?v=1.2.0';
-import { makeGround } from './ground.js?v=1.2.0';
-import { propSprite } from './props.js?v=1.2.0';
+import { CELL, FLOOR } from './scale.js?v=1.3.0';
+import { renderColumn } from './buildings.js?v=1.3.0';
+import { makeGround } from './ground.js?v=1.3.0';
+import { propSprite } from './props.js?v=1.3.0';
 
 export function makeScene(city) {
   const ground = makeGround(city);
   const cache = new Map();
   const keyOf = (i, j) => j * city.w + i;
 
+  // Le cache des colonnes peintes ; borné une fois le décor pré-calculé
+  // (on ne redessine alors en détail que les colonnes autour de Pierre)
+  let cacheMax = Infinity;
   function column(i, j) {
     const k = keyOf(i, j);
     let c = cache.get(k);
-    if (!c) { c = renderColumn(city, i, j); cache.set(k, c); }
+    if (!c) {
+      c = renderColumn(city, i, j); cache.set(k, c);
+      if (cache.size > cacheMax) cache.delete(cache.keys().next().value);
+    }
     return c;
   }
   // Après une modification de hauteur : la colonne et ses voisines changent d'aspect
@@ -32,8 +38,8 @@ export function makeScene(city) {
      sprites : [{ wx, wy, draw(ctx, sx, sy) }] ; fade(i, j) → opacité d'une colonne ;
      onDiagonal(d) : dessine ce qui est sur la diagonale d (la nuée de rats),
      après les maisons de cette diagonale et avant celles de la suivante. */
-  function draw(ctx, camX, camY, vw, vh, sprites = [], { fade, onDiagonal } = {}) {
-    ctx.drawImage(ground.canvas, Math.round(-ground.ox - camX), Math.round(-camY));
+  function draw(ctx, camX, camY, vw, vh, sprites = [], { fade, onDiagonal, noGround } = {}) {
+    if (!noGround) ctx.drawImage(ground.canvas, Math.round(-ground.ox - camX), Math.round(-camY));
     const items = [];
     // Les colonnes visibles : on balaye les diagonales qui touchent la vue
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
@@ -73,6 +79,7 @@ export function makeScene(city) {
 
   // Les sommets de cheminée visibles, en écran monde
   function chimneys(camX, camY, vw, vh) {
+    if (chimneyList) return chimneyList.filter(([x, y]) => x - camX > -10 && x - camX < vw + 10 && y - camY > -20 && y - camY < vh);
     const out = [];
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
       if (city.at(i, j) <= 0) continue;
@@ -120,10 +127,59 @@ export function makeScene(city) {
     return occlusion;
   }
 
+  /* Le décor pré-calculé (le jeu) : le sol, toutes les maisons et le mobilier
+     dans une seule grande image, en écran monde décalé de (DX, DY) comme le
+     tampon de profondeur. Une image par vue au lieu de centaines. Les traces
+     s'y recopient (ground.mirror), sauf là où une maison ou un objet couvre
+     le sol (le masque `covered`). */
+  let decor = null, chimneyList = null;
+  function buildDecor() {
+    if (decor) return decor;
+    const { DX, DY, DW, DH } = depthMap();
+    // 1. les maisons et le mobilier seuls, pour savoir quels pixels ils couvrent
+    const over = document.createElement('canvas');
+    over.width = DW; over.height = DH;
+    const og = over.getContext('2d', { willReadFrequently: true });
+    draw(og, -DX, -DY, DW, DH, [], { noGround: true });
+    const alpha = og.getImageData(0, 0, DW, DH).data;
+    const covered = new Uint8Array(DW * DH);
+    for (let k = 0; k < covered.length; k++) covered[k] = alpha[k * 4 + 3] > 0 ? 1 : 0;
+    // 2. le sol dessous, les maisons dessus
+    const canvas = document.createElement('canvas');
+    canvas.width = DW; canvas.height = DH;
+    const g = canvas.getContext('2d');
+    g.drawImage(ground.canvas, DX - ground.ox, DY);
+    g.drawImage(over, 0, 0);
+    // les cheminées, une fois pour toutes (pour la fumée)
+    chimneyList = [];
+    for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
+      if (city.at(i, j) <= 0) continue;
+      const c = column(i, j), [fx, fy] = front(i, j);
+      for (const [lx, ly] of c.chimneys) chimneyList.push([fx - CELL + lx, fy - c.h + 1 + ly, i * 31 + j]);
+    }
+    cache.clear(); cacheMax = 60;
+    ground.mirror = (gx, gy, color) => {
+      const X = gx - ground.ox + DX, Y = gy + DY;
+      if (X < 0 || Y < 0 || X >= DW || Y >= DH || covered[Y * DW + X]) return;
+      g.fillStyle = color; g.fillRect(X, Y, 1, 1);
+    };
+    decor = { canvas, DX, DY, DW, DH };
+    return decor;
+  }
+  // Pose le décor sur la vue (coin haut-gauche camX, camY)
+  function drawDecor(ctx, camX, camY, vw, vh) {
+    const { canvas, DX, DY, DW, DH } = buildDecor();
+    let sx = Math.round(camX) + DX, sy = Math.round(camY) + DY, dx = 0, dy = 0, w = vw, h = vh;
+    if (sx < 0) { dx = -sx; w += sx; sx = 0; }
+    if (sy < 0) { dy = -sy; h += sy; sy = 0; }
+    w = Math.min(w, DW - sx); h = Math.min(h, DH - sy);
+    if (w > 0 && h > 0) ctx.drawImage(canvas, sx, sy, w, h, dx, dy, w, h);
+  }
+
   // Écran monde → sol (z = 0)
   const toWorld = (sx, sy) => [sy + sx / 2, sy - sx / 2];
   // L'étendue du quartier, en écran monde
   const bounds = { left: -city.h * CELL, right: city.w * CELL, top: -7 * 60, bottom: (city.w + city.h) * CELL / 2 };
 
-  return { city, ground, column, invalidate, draw, chimneys, front, toWorld, bounds, depthMap };
+  return { city, ground, column, invalidate, draw, chimneys, front, toWorld, bounds, depthMap, buildDecor, drawDecor };
 }
