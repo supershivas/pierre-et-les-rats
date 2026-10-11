@@ -1,8 +1,7 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "date": "2026-10-11",
   "changes": [
-    "Le jeu passe à la nuit : bleu nuit, blanc et noir",
-    "Moins de maisons, plus basses, et beaucoup moins de détails sur les façades"
+    "Il fait nuit : le quartier s'enfonce dans le noir, seule une lueur entoure Pierre"
   ]
 }

@@ -1,10 +1,10 @@
 /* La planche d'échelle : les premiers éléments du jeu, côte à côte puis un par
    un, dessinés par le même code que le jeu (sprites.js, buildings.js). */
-import { makeCity, hash } from './city.js?v=1.0.1';
-import { renderColumn } from './buildings.js?v=1.0.1';
-import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.1';
-import { PAL } from './palette.js?v=1.0.1';
-import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.0.1';
+import { makeCity, hash } from './city.js?v=1.0.2';
+import { renderColumn } from './buildings.js?v=1.0.2';
+import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.2';
+import { PAL } from './palette.js?v=1.0.2';
+import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.0.2';
 
 const $ = id => document.getElementById(id);
 const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };

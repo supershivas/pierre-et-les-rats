@@ -5,11 +5,11 @@
    Coordonnées monde en pixels du jeu (1 px = 5 cm, une case = 60 px). La
    vue est rendue en pixels du jeu dans un petit canvas, agrandi d'un
    facteur entier (pixels nets). */
-import { PAL } from './palette.js?v=1.0.1';
-import { CELL } from './scale.js?v=1.0.1';
-import { makeScene } from './scene.js?v=1.0.1';
-import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.1';
-import { hash } from './city.js?v=1.0.1';
+import { PAL } from './palette.js?v=1.0.2';
+import { CELL } from './scale.js?v=1.0.2';
+import { makeScene } from './scene.js?v=1.0.2';
+import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.2';
+import { hash } from './city.js?v=1.0.2';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const RAT_SPEED = 70;
@@ -346,7 +346,6 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
       return hidesPoint(psx - fx, psy - fy, city.at(i, j) * 60 + 34) ? 0.45 : 1;
     };
     scene.draw(ctx, cx, cy, vw, vh, sprites, { fade });
-    if (!attract) xray(Math.round(pierre.x - pierre.y - cx), Math.round((pierre.x + pierre.y) / 2 - cy));
     // Fumées
     for (const s of smoke) {
       const a = s.t / s.life;
@@ -358,6 +357,10 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
         if ((px + py + Math.floor(s.t * 4)) % (a > 0.7 ? 3 : 2) === 0) ctx.fillRect(x + px, y + py, 1, 1);
       }
     }
+    // La nuit : tout s'enfonce dans le noir hors de la lueur autour de Pierre
+    const lx = attract ? vw / 2 : pierre.x - pierre.y - cx, ly = attract ? vh / 2 : (pierre.x + pierre.y) / 2 - cy - 12;
+    ctx.drawImage(darkness, Math.round(lx - darkness.width / 2), Math.round(ly - darkness.height / 2));
+    if (!attract) xray(Math.round(pierre.x - pierre.y - cx), Math.round((pierre.x + pierre.y) / 2 - cy));
     // Notes
     for (const n of notes) {
       const fadeN = Math.max(0, (n.t - n.life * 0.55) / (n.life * 0.45));
@@ -366,6 +369,29 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     // Neige qui tombe
     ctx.fillStyle = PAL.neige;
     for (const f of flakes) ctx.fillRect(Math.round(f.x), Math.round(f.y), f.big ? 2 : 1, f.big ? 2 : 1);
+  }
+
+  /* Le masque de la nuit : un noir tramé (matrice de Bayer 4 × 4) de plus en
+     plus dense en s'éloignant du centre, qu'on pose centré sur Pierre. Deux
+     fois la taille de la vue, pour la couvrir quand la caméra a du retard. */
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const NIGHT = { clear: 46, dark: 170, max: 0.88 };
+  let darkness = document.createElement('canvas');
+  function buildDarkness() {
+    const w = vw * 2, h = vh * 2;
+    darkness = document.createElement('canvas');
+    darkness.width = w; darkness.height = h;
+    const g = darkness.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+    const [r, gg, b] = [5, 7, 12]; // le noir de la palette (PAL.nuit)
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      // une ellipse 2:1, comme le sol vu en isométrique
+      const dist = Math.hypot((x - w / 2) / 1.6, (y - h / 2));
+      const t = Math.min(1, Math.max(0, (dist - NIGHT.clear) / (NIGHT.dark - NIGHT.clear))) * NIGHT.max;
+      if (t * 16 <= BAYER[(y % 4) * 4 + (x % 4)]) continue;
+      const o = (y * w + x) * 4;
+      d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
   }
 
   let last = 0, raf = 0;
@@ -393,6 +419,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     canvas.style.height = (vh * factor / dpr) + 'px';
     ctx.imageSmoothingEnabled = false;
     resetFlakes();
+    buildDarkness();
     if (!paused) render();
   }
 

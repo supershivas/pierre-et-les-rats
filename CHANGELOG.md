@@ -1,5 +1,8 @@
 # Historique
 
+## 1.0.2 — 2026-10-11
+- Il fait nuit : le quartier s'enfonce dans le noir, seule une lueur entoure Pierre
+
 ## 1.0.1 — 2026-10-11
 - Le jeu passe à la nuit : bleu nuit, blanc et noir
 - Moins de maisons, plus basses, et beaucoup moins de détails sur les façades (ni volets, ni boutiques, ni lucarnes)

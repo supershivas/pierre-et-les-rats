@@ -94,4 +94,8 @@ planche gardent les tokens du design system.
   en ocre là où il reste caché (`xray` dans game.js).
 - Modifier une hauteur change l'aspect des voisines : `scene.invalidate`
   efface le cache des 3 × 3 colonnes et repeint le sol alentour.
+- La nuit (v1.0.2) : un masque de noir tramé (Bayer 4 × 4) posé sur la
+  scène, clair autour de Pierre puis de plus en plus dense (`NIGHT`,
+  `buildDarkness` dans game.js) ; les notes, la neige qui tombe et la
+  silhouette de Pierre sont dessinées par-dessus.
 - Le titre utilise IM Fell English (Google Fonts), propre au jeu.
