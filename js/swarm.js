@@ -19,8 +19,8 @@
      Les pixels des rats sont écrits directement dans un tampon (Uint32), puis
      envoyés d'un coup par diagonale (le rectangle qu'ils occupent) : aucun
      appel de dessin par rat. */
-import { CELL } from './scale.js?v=1.1.0';
-import { PIX } from './rat-sprites.js?v=1.1.0';
+import { CELL } from './scale.js?v=1.2.0';
+import { PIX } from './rat-sprites.js?v=1.2.0';
 
 const GRID = 8;               // px : taille des cases de voisinage
 const SEP_R = 5;              // px : distance de séparation
@@ -279,9 +279,11 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
   let nVisible = 0;
 
   /* Dessine la nuée par-dessus la scène. occl : le tampon de profondeur des
-     maisons (scene.depthMap) ; hole : la silhouette de Pierre ({ data, x, y,
-     w, h, sy }), que les rats placés derrière lui ne recouvrent pas. */
-  function draw(ctx, camX, camY, vw, vh, time, occl, hole) {
+     maisons (scene.depthMap) ; faded : les colonnes estompées (indice + 1),
+     à travers lesquelles on voit les rats ; hole : la silhouette de Pierre
+     ({ data, x, y, w, h, sy }), que les rats placés derrière lui ne
+     recouvrent pas. */
+  function draw(ctx, camX, camY, vw, vh, time, occl, hole, faded) {
     ensureRaster(vw, vh);
     nVisible = 0;
     rowCount.fill(0, 0, vh + 32);
@@ -296,12 +298,12 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
     for (let k = 0; k < vh + 32; k++) { const c = rowCount[k]; rowCount[k] = acc; acc += c; }
     for (let v = 0; v < nVisible; v++) { const i = visible[v]; order[rowCount[keyOfRat[i]]++] = i; }
 
-    const { depth, DX, DY, DW, DH } = occl;
+    const { depth, diagOf, DX, DY, DW, DH } = occl;
     const ox = Math.round(camX) + DX, oy = Math.round(camY) + DY;
     let bx0 = rw, by0 = rh, bx1 = -1, by1 = -1;
     for (let v = 0; v < nVisible; v++) {
       const i = order[v];
-      const d1 = ((x[i] / CELL) | 0) + ((y[i] / CELL) | 0) + 1;
+      const d0 = ((x[i] / CELL) | 0) + ((y[i] / CELL) | 0);
       const fy = (x[i] + y[i]) / 2 - camY;
       const sx = Math.round(x[i] - y[i] - camX), sy = Math.round(fy - z[i]);
       const behind = hole && fy < hole.sy;
@@ -311,7 +313,10 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
         if (X < 0 || Y < 0 || X >= rw || Y >= rh) continue;
         // caché par une maison plus en avant ?
         const WX = X + ox, WY = Y + oy;
-        if (WX >= 0 && WY >= 0 && WX < DW && WY < DH && depth[WY * DW + WX] > d1) continue;
+        if (WX >= 0 && WY >= 0 && WX < DW && WY < DH) {
+          const id = depth[WY * DW + WX];
+          if (id && diagOf[id] > d0 && !(faded && faded.has(id))) continue;
+        }
         // derrière Pierre ?
         if (behind) {
           const hx = X - hole.x, hy = Y - hole.y;

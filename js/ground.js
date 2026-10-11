@@ -2,9 +2,9 @@
    grande image (une case = un losange de 120 × 60 px). Les traces de pas s'y
    impriment pixel par pixel ; la neige qui tombe les recouvre peu à peu
    (on repeint la couleur d'origine, que `colorAt` sait retrouver). */
-import { RGB, PAL } from './palette.js?v=1.1.0';
-import { CELL, FLOOR } from './scale.js?v=1.1.0';
-import { hash } from './city.js?v=1.1.0';
+import { RGB, PAL } from './palette.js?v=1.2.0';
+import { CELL, FLOOR } from './scale.js?v=1.2.0';
+import { hash } from './city.js?v=1.2.0';
 
 export function makeGround(city) {
   const W = (city.w + city.h) * CELL, H = (city.w + city.h) * CELL / 2 + 2;

@@ -1,5 +1,11 @@
 # Historique
 
+## 1.2.0 — 2026-10-11
+- Le zoom suit l'armée : tout près de Pierre quand il est seul, de plus en plus loin à mesure que les rats arrivent (un travelling doux)
+- Des immeubles haussmanniens, sans détails de plus : rez-de-chaussée à refends et arcades, hautes portes-fenêtres alignées, balcons filants au 2e et au 5e, corniche, comble à la Mansart et ses lucarnes, la même hauteur le long d'un îlot
+- Du mobilier urbain : réverbères (qui éclairent la nuit), arbres nus, bancs, colonnes Morris, bornes ; l'atelier a un outil « Mobilier » pour les poser, et « Démolir » les retire
+- On voit les rats à travers les maisons estompées, et Pierre part d'un coin dégagé de la place
+
 ## 1.1.0 — 2026-10-11
 - Une vraie nuée : les rats grouillent sans arrêt, vont dans tous les sens, se dressent, sautent, se retournent, se lèchent et se montent dessus
 - La nuée tient des milliers de rats (essayé jusqu'à 4 000) ; ils sortent des égouts par groupes de plus en plus gros

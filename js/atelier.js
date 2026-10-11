@@ -2,13 +2,14 @@
    enregistré tout de suite dans ce navigateur (le brouillon, que le jeu lit
    et signale), puis publié d'un geste dans le dépôt (data/ville.json, un
    commit sur main par l'API de GitHub, avec un jeton gardé ici). */
-import { makeCity, cityToData, generateQuarter } from './city.js?v=1.1.0';
-import { loadPublished, readDraft, writeDraft, sameCity, formatCity } from './city-store.js?v=1.1.0';
-import { makeScene } from './scene.js?v=1.1.0';
-import { CELL, ROOF } from './scale.js?v=1.1.0';
-import { PAL } from './palette.js?v=1.1.0';
-import { keyIs, stopTypeahead } from './keys.js?v=1.1.0';
-import { drawPierre } from './sprites.js?v=1.1.0';
+import { makeCity, cityToData, generateQuarter } from './city.js?v=1.2.0';
+import { loadPublished, readDraft, writeDraft, sameCity, formatCity } from './city-store.js?v=1.2.0';
+import { makeScene } from './scene.js?v=1.2.0';
+import { CELL, ROOF, MAX_FLOORS } from './scale.js?v=1.2.0';
+import { PROP_TYPES, propSprite } from './props.js?v=1.2.0';
+import { PAL } from './palette.js?v=1.2.0';
+import { keyIs, stopTypeahead } from './keys.js?v=1.2.0';
+import { drawPierre } from './sprites.js?v=1.2.0';
 
 const REPO = 'supershivas/pierre-et-les-rats', BRANCH = 'main', PATH = 'data/ville.json';
 const TOKEN_KEY = 'pierre:gh-token';
@@ -33,7 +34,7 @@ useData(readDraft() || published);
 const canvas = $('view'), ctx = canvas.getContext('2d');
 let factor = 2, vw = 300, vh = 200, dirty = true;
 let cam = { x: 0, y: 0 };
-let tool = 'build', hover = null;
+let tool = 'build', hover = null, propKind = 'lamp';
 const history = [];
 
 function centerOn(i, j) {
@@ -106,6 +107,41 @@ function pick(px, py) {
 }
 
 // ─── Modifier ───
+// Écran (pixels CSS dans le canvas) → écran monde
+function toScreenWorld(px, py) {
+  const dpr = window.devicePixelRatio || 1;
+  return [px * dpr / factor + cam.x, py * dpr / factor + cam.y];
+}
+// L'objet sous le pointeur (le plus en avant), ou -1
+function pickProp(sx, sy) {
+  let best = -1, bk = -Infinity;
+  city.props.forEach(([type, x, y, v], k) => {
+    const spr = propSprite(type, v), ox = x - y - spr.ax, oy = (x + y) / 2 - spr.ay;
+    if (sx < ox - 2 || sx > ox + spr.c.width + 2 || sy < oy - 2 || sy > oy + spr.c.height + 2) return;
+    if (x + y > bk) { bk = x + y; best = k; }
+  });
+  return best;
+}
+// Un geste à l'endroit touché : poser ou retirer un objet, sinon agir sur la case
+function applyAt(px, py) {
+  const [sx, sy] = toScreenWorld(px, py);
+  if (tool === 'raze') {
+    const k = pickProp(sx, sy);
+    if (k >= 0) { history.push({ propDel: city.props[k], at: k }); city.props.splice(k, 1); saveDraft(); return; }
+  }
+  if (tool === 'prop') {
+    const [wx, wy] = scene.toWorld(sx, sy);
+    if (city.at(Math.floor(wx / CELL), Math.floor(wy / CELL)) !== 0) { toast('Le mobilier se pose dans la rue.'); return; }
+    const variant = propKind === 'tree' ? Math.floor(Math.random() * 6) : propKind === 'bench' ? Math.floor(Math.random() * 2) : 0;
+    city.props.push([propKind, Math.round(wx), Math.round(wy), variant]);
+    history.push({ propAdd: true });
+    saveDraft();
+    return;
+  }
+  const h = pick(px, py);
+  if (h) apply(h);
+}
+
 function apply([i, j]) {
   const n = city.at(i, j);
   if (tool === 'start') {
@@ -114,7 +150,7 @@ function apply([i, j]) {
     city.start = [i, j];
   } else {
     const next = tool === 'build' ? n + 1 : n - 1;
-    if (next < 0 || next > 6 || next === n) return;
+    if (next < 0 || next > MAX_FLOORS || next === n) return;
     if (next > 0 && city.start[0] === i && city.start[1] === j) { toast('Le point de départ de Pierre doit rester dans la rue.'); return; }
     history.push({ i, j, n });
     city.set(i, j, next);
@@ -125,7 +161,9 @@ function apply([i, j]) {
 function undo() {
   const h = history.pop();
   if (!h) return;
-  if (h.start) city.start = h.start;
+  if (h.propAdd) city.props.pop();
+  else if (h.propDel) city.props.splice(h.at, 0, h.propDel);
+  else if (h.start) city.start = h.start;
   else { city.set(h.i, h.j, h.n); scene.invalidate(h.i, h.j); }
   saveDraft();
 }
@@ -143,7 +181,11 @@ function refreshPending() {
     for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) n++;
   } else n = data.w * data.h;
   const startMoved = String(data.start) !== String(published.start);
-  const total = n + (startMoved ? 1 : 0);
+  const mine = new Set((data.props || []).map(p => JSON.stringify(p))), theirs = new Set((published.props || []).map(p => JSON.stringify(p)));
+  let props = 0;
+  for (const p of mine) if (!theirs.has(p)) props++;
+  for (const p of theirs) if (!mine.has(p)) props++;
+  const total = n + props + (startMoved ? 1 : 0);
   const el = $('pending');
   el.textContent = total ? `${total} à publier` : 'Rien à publier';
   el.classList.toggle('some', !!total);
@@ -177,8 +219,7 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerup', e => {
   if (drag && !drag.moved) {
     const r = canvas.getBoundingClientRect();
-    const h = pick(e.clientX - r.left, e.clientY - r.top);
-    if (h) apply(h);
+    applyAt(e.clientX - r.left, e.clientY - r.top);
     if (e.pointerType === 'mouse') { hover = pick(e.clientX - r.left, e.clientY - r.top); dirty = true; }
   }
   drag = null;
@@ -201,9 +242,24 @@ function setTool(t) {
     b.classList.toggle('on', on);
     b.setAttribute('aria-checked', String(on));
   }
+  kinds.hidden = t !== 'prop';
   dirty = true;
 }
 for (const b of document.querySelectorAll('[data-tool]')) b.addEventListener('click', () => setTool(b.dataset.tool));
+// Les objets qu'on peut poser (outil Mobilier)
+const kinds = $('prop-kinds');
+for (const [k, t] of Object.entries(PROP_TYPES)) {
+  const b = document.createElement('button');
+  b.className = 'tool' + (k === propKind ? ' on' : '');
+  b.type = 'button'; b.dataset.prop = k; b.title = t.label;
+  b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(k === propKind)); b.setAttribute('aria-label', t.label);
+  b.innerHTML = `<i class="ti ${t.icon}" aria-hidden="true"></i><span>${t.label}</span>`;
+  b.addEventListener('click', () => {
+    propKind = k;
+    for (const o of kinds.children) { const on = o.dataset.prop === k; o.classList.toggle('on', on); o.setAttribute('aria-checked', String(on)); }
+  });
+  kinds.append(b);
+}
 $('undo').addEventListener('click', undo);
 $('zoom-in').addEventListener('click', () => { factor = Math.min(8, factor + 1); resize(); });
 $('zoom-out').addEventListener('click', () => { factor = Math.max(1, factor - 1); resize(); });
@@ -242,6 +298,7 @@ addEventListener('keydown', e => {
   if (keyIs(e, 'b')) setTool('build');
   else if (keyIs(e, 'd')) setTool('raze');
   else if (keyIs(e, 'p')) setTool('start');
+  else if (keyIs(e, 'm')) setTool('prop');
   else if (keyIs(e, 'u')) undo();
   const step = 40;
   const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };

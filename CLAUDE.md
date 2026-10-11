@@ -21,11 +21,14 @@ dans la neige. L'armée grossit à mesure qu'il joue.
 
 1 pixel = 5 cm. Trace de rat : 1 px. Traces de Pierre : 2 × 1 px. Rat :
 10 × 4 px, queue comprise. Note : 4 × 6 px. Pierre : 13 × 26 px (1,30 m).
-Fenêtre : 18 × 30 px. Porte : 20 × 44 px. Module d'immeuble : une case de
-60 × 60 px, un étage de 60 px (3 m), comble de 34 px, 6 étages au plus.
-La vue montre environ 600 px du jeu en hauteur (v1.1.0), agrandis d'un
-facteur entier : Pierre y est petit, comme le viking de Kingvi, et n'est
-qu'**une silhouette noire** (`silhouette: true` de `drawPierre`).
+Porte-fenêtre : 12 × 40 px. Arcade du rez-de-chaussée : 28 × 48 px. Module
+d'immeuble : une case de 60 × 60 px, un étage de 60 px (3 m), comble de
+34 px, 7 niveaux au plus. Réverbère : 11 × 70 px (3,5 m).
+La vue suit l'armée (v1.2.0) : environ 250 px du jeu en hauteur quand
+Pierre est seul, jusqu'à 640 px vers 3 000 rats (`VIEW_NEAR`, `VIEW_FAR`,
+`viewHeight` dans game.js), toujours agrandie d'un facteur entier ; quand le
+facteur change, une transformation CSS fait le travelling (`checkZoom`).
+Pierre n'est qu'**une silhouette noire** (`silhouette: true` de `drawPierre`).
 
 ### Palette du jeu (js/palette.js, variables --g-* de css/style.css)
 
@@ -75,22 +78,35 @@ planche gardent les tokens du design system.
   dressé ×2, saut, en boule), en listes de pixels et en petits canvas.
 - `js/city.js` : le modèle du quartier (une hauteur par case, 0 = rue), le
   hasard déterministe `hash`, le générateur de quartier `generateQuarter`
-  (clairsemé : maisons basses, terrains vagues, environ 45 % de cases bâties).
+  (clairsemé, environ 45 % de cases bâties : îlots d'immeubles de 5 à 7
+  niveaux à la même corniche, quelques maisons basses, terrains vagues ;
+  départ sur la case la plus dégagée de la place).
+- `js/props.js` : le mobilier urbain (réverbère, arbre, banc, colonne
+  Morris, borne), dessiné une fois par type, tiré au sort par
+  `generateProps`, gardé dans `data/ville.json` (« props » : type, x, y en
+  monde, variante). Pierre bute dessus ; les rats non. Les réverbères
+  percent la nuit (une ellipse tramée en `destination-out` sur la couche de
+  nuit, seulement s'il y en a un à l'écran).
 - `js/buildings.js` : **le générateur d'immeubles iso**. Chaque colonne est
   peinte pixel par pixel une fois ; faces, ouvertures, toit, pignons,
   cheminées s'adaptent aux voisins (façon Townscaper). **Peu de détails, à
-  dessein** (v1.0.1) : murs unis, une fenêtre sur deux, portes noires, pas
-  de volets, boutiques ni lucarnes.
+  dessein** : murs unis, vitres noires. Ce qui fait **haussmannien**
+  (v1.2.0), c'est le rythme : RDC à refends et arcades, deux hautes
+  portes-fenêtres par module alignées d'étage en étage, balcons filants au
+  2e et au dernier étage, corniche épaisse, comble à la Mansart avec deux
+  lucarnes par module.
 - `js/ground.js` : la neige des rues (une grande image), ombres portées,
   congères, bouches d'égout ; traces imprimées et effacées.
 - `js/scene.js` : tri arrière → avant des colonnes et des sprites, partagé
   par le jeu et l'atelier ; `depthMap()`, le tampon de profondeur des
-  maisons en écran monde (calculé une fois) qui cache les rats.
+  maisons en écran monde (calculé une fois : l'indice de la colonne la plus
+  en avant par pixel) qui cache les rats, sauf derrière une maison estompée.
 - `js/sprites.js` : Pierre, rat, notes, en tableaux de pixels.
 - `js/audio.js` : la flûte (WebAudio) et son air.
 - `js/city-store.js` : chargement du quartier publié et du brouillon.
 - `atelier.html`, `js/atelier.js`, `css/atelier.css` : l'Atelier (bâtir,
-  démolir, point de départ, nouveau quartier, publier).
+  démolir un étage ou un objet, point de départ, mobilier, nouveau
+  quartier, publier).
 - `echelle.html`, `js/echelle.js` : la planche d'échelle.
 - `scripts/stamp-version.mjs` : estampille `?v=` sur imports et feuilles de
   style ; **à lancer après chaque changement de `version.json`** (GitHub
@@ -117,5 +133,7 @@ planche gardent les tokens du design system.
 - Performances (Chromium sans carte graphique, vue 1280 × 760) : 3 000
   rats → simulation 4,4 ms, rendu 9,7 ms (7,8 ms sans rats). Un drawImage
   par rat coûtait 12 ms de plus ; un envoi du tampon par diagonale, encore
-  plus. Ne pas revenir en arrière.
+  plus. Ne pas revenir en arrière. v1.2.0 : les immeubles plus hauts
+  coûtent quelques ms de plus (rendu ~13 ms à 3 000 rats sans carte
+  graphique) ; la nuée elle-même ~2 ms (`pierreStats().ms.rats`).
 - Le titre utilise IM Fell English (Google Fonts), propre au jeu.

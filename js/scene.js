@@ -1,9 +1,10 @@
 /* La scène : le sol, puis colonnes d'immeubles et personnages triés de
    l'arrière vers l'avant (somme des cases x + y). Partagée par le jeu et
    l'atelier. Coordonnées « écran monde » : x = wx − wy, y = (wx + wy) / 2. */
-import { CELL, FLOOR } from './scale.js?v=1.1.0';
-import { renderColumn } from './buildings.js?v=1.1.0';
-import { makeGround } from './ground.js?v=1.1.0';
+import { CELL, FLOOR } from './scale.js?v=1.2.0';
+import { renderColumn } from './buildings.js?v=1.2.0';
+import { makeGround } from './ground.js?v=1.2.0';
+import { propSprite } from './props.js?v=1.2.0';
 
 export function makeScene(city) {
   const ground = makeGround(city);
@@ -44,6 +45,13 @@ export function makeScene(city) {
       if (fy - camY < 0 || fy - camY - n * 60 - 120 > vh) continue;
       items.push({ k: i + j, i, j, fx, fy });
     }
+    // Le mobilier urbain, trié avec le reste
+    for (const [type, px, py, v] of city.props) {
+      const spr = propSprite(type, v);
+      const sx = px - py - camX, sy = (px + py) / 2 - camY;
+      if (sx + spr.c.width < 0 || sx - spr.c.width > vw || sy < -4 || sy - spr.ay > vh) continue;
+      items.push({ k: Math.floor(px / CELL) + Math.floor(py / CELL) + 0.5 + (px + py) / 1e6, s: { wx: px, wy: py, draw: (g, x, y) => g.drawImage(spr.c, x - spr.ax, y - spr.ay) } });
+    }
     for (const s of sprites) items.push({ k: Math.floor(s.wx / CELL) + Math.floor(s.wy / CELL) + 0.5 + (s.wx + s.wy) / 1e6, s });
     if (onDiagonal) for (let d = 0; d <= city.w + city.h; d++) items.push({ k: d + 0.4, diag: d });
     items.sort((p, q) => p.k - q.k);
@@ -81,27 +89,34 @@ export function makeScene(city) {
   }
 
   /* Le tampon de profondeur des maisons, en écran monde, calculé une fois :
-     pour chaque pixel, 1 + la diagonale (i + j) de la maison la plus en
+     pour chaque pixel, 1 + l'indice (j × w + i) de la colonne la plus en
      avant qui le couvre (0 : aucune). Un rat de la diagonale d est caché là
-     où la valeur dépasse d + 1. La silhouette d'une colonne : le losange du
-     sol monté jusqu'au haut du brisis du toit. */
+     où cette colonne a une diagonale i + j plus grande que d (sauf si elle
+     est estompée). La silhouette d'une colonne : le losange du sol monté
+     jusqu'au haut du brisis du toit. */
   let occlusion = null;
   function depthMap() {
     if (occlusion) return occlusion;
-    const DX = city.h * CELL, DY = 8 * FLOOR, DW = (city.w + city.h) * CELL + 1, DH = (city.w + city.h) * CELL / 2 + DY + 2;
-    const depth = new Uint8Array(DW * DH);
+    const DX = city.h * CELL, DY = 9 * FLOOR, DW = (city.w + city.h) * CELL + 1, DH = (city.w + city.h) * CELL / 2 + DY + 2;
+    const depth = new Uint16Array(DW * DH);
+    const diagOf = new Int16Array(city.w * city.h + 1); // diagonale de chaque colonne (indice + 1)
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
       const n = city.at(i, j);
       if (n <= 0) continue;
-      const [fx, fy] = front(i, j), hc = n * FLOOR + 22, key = i + j + 1;
+      const id = j * city.w + i + 1, key = i + j;
+      diagOf[id] = key;
+      const [fx, fy] = front(i, j), hc = n * FLOOR + 22;
       for (let x = -CELL; x <= CELL; x++) {
         const ax = Math.abs(x), X = fx + x + DX;
         if (X < 0 || X >= DW) continue;
         const y0 = Math.max(0, Math.ceil(fy - CELL + ax / 2 - hc) + DY), y1 = Math.min(DH - 1, Math.floor(fy - ax / 2) + DY);
-        for (let Y = y0; Y <= y1; Y++) { const o = Y * DW + X; if (depth[o] < key) depth[o] = key; }
+        for (let Y = y0; Y <= y1; Y++) {
+          const o = Y * DW + X, cur = depth[o];
+          if (!cur || diagOf[cur] < key) depth[o] = id;
+        }
       }
     }
-    occlusion = { depth, DX, DY, DW, DH };
+    occlusion = { depth, diagOf, DX, DY, DW, DH };
     return occlusion;
   }
 

@@ -1,23 +1,23 @@
 /* La planche d'échelle : les premiers éléments du jeu, côte à côte puis un par
    un, dessinés par le même code que le jeu (sprites.js, buildings.js). */
-import { makeCity, hash } from './city.js?v=1.1.0';
-import { renderColumn } from './buildings.js?v=1.1.0';
-import { drawPierre, drawNote } from './sprites.js?v=1.1.0';
-import { ATLAS } from './rat-sprites.js?v=1.1.0';
-import { PAL } from './palette.js?v=1.1.0';
-import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.1.0';
+import { makeCity, hash } from './city.js?v=1.2.0';
+import { renderColumn } from './buildings.js?v=1.2.0';
+import { drawPierre, drawNote } from './sprites.js?v=1.2.0';
+import { ATLAS } from './rat-sprites.js?v=1.2.0';
+import { propSprite } from './props.js?v=1.2.0';
+import { PAL } from './palette.js?v=1.2.0';
+import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.2.0';
 
 const $ = id => document.getElementById(id);
 const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
-// Une maison seule au milieu de la rue, avec une porte et une fenêtre au premier
+// Un immeuble seul au milieu de la rue, ses fenêtres éteintes
 function house(floors) {
   let seed = 1;
   for (; seed < 5000; seed++) {
-    const door = hash(1, 1, 0, 1, seed) < 0.5;
-    const win = hash(1, 1, 1, 1, seed) < 0.55;
-    const lit = hash(1, 1, 1, 5, seed) < 0.22;
-    if (door && win && !lit) break;
+    // aucune fenêtre éclairée au premier, l'arcade éteinte
+    const lit = [1, 2].some(f => hash(1, 1, 1, f, 5, seed) < 0.16 || hash(1, 1, 1, f, 6, seed) < 0.16);
+    if (!lit && hash(1, 1, 1, 7, seed) >= 0.3) break;
   }
   const city = makeCity({ w: 3, h: 3, seed, start: [0, 0], rows: ['000', `0${floors}0`, '000'] });
   return renderColumn(city, 1, 1);
@@ -58,10 +58,10 @@ function zoomed(src, z) {
   return c;
 }
 
-const house1 = house(1), house4 = house(4);
-const elev = elevation(house4, 4);
-const door = crop(elev, 18, elev.height - 48, 24, 48);
-const win = crop(elev, 11, elev.height - FLOOR - 48, 38, 48);
+const house1 = house(1), house6 = house(6);
+const elev = elevation(house6, 6);
+const door = crop(elev, 14, elev.height - 50, 32, 50);
+const win = crop(elev, 5, elev.height - FLOOR - 50, 18, 50);
 
 const sprite = (w, h, draw) => { const c = canvasOf(w, h); draw(c.getContext('2d')); return c; };
 const pierreStand = sprite(18, 28, g => drawPierre(g, 8, 27, { shadow: false, silhouette: true }));
@@ -80,14 +80,15 @@ const CARDS = [
   { title: 'Rat', art: RAT_POSES, dims: `${RAT.w} × ${RAT.h} px`, real: `${toMeters(RAT.w)} m, queue comprise`, about: 'Neuf poses : trois temps de galop de profil, vers nous, de dos, dressé (deux temps : il renifle), en plein saut, roulé en boule. La nuée en tire des milliers à la fois.' },
   { title: 'Note de musique', art: [note], dims: `${NOTE.w} × ${NOTE.h} px`, real: '—', about: 'Sort de la flûte à chaque note jouée, monte en ondulant et se trame en s\'effaçant.' },
   { title: 'Pierre', art: [pierreStand, pierreWalk, pierrePlay], dims: `${PIERRE.w} × ${PIERRE.h} px`, real: `${toMeters(PIERRE.h)} m`, about: 'Une silhouette noire, rien de plus : debout, en marche, jouant de la flûte. Dans le jeu, il est tout petit dans l\'écran (la vue montre environ 600 px de haut).' },
-  { title: 'Fenêtre', art: [win], dims: `${WINDOW.w} × ${WINDOW.h} px`, real: `${toMeters(WINDOW.w)} × ${toMeters(WINDOW.h)} m`, about: 'Un cadre, une vitre noire, un liseré de neige dessus. Une sur cinq environ est éclairée : blanche, avec sa croisée.' },
-  { title: 'Porte', art: [door], dims: `${DOOR.w} × ${DOOR.h} px`, real: `${toMeters(DOOR.w)} × ${toMeters(DOOR.h)} m`, about: 'Un rectangle noir au ras de la neige.' },
+  { title: 'Porte-fenêtre', art: [win], dims: `${WINDOW.w} × ${WINDOW.h} px`, real: `${toMeters(WINDOW.w)} × ${toMeters(WINDOW.h)} m`, about: 'Deux par module et par étage, alignées d\'un étage à l\'autre : c\'est ce rythme qui fait l\'immeuble haussmannien. Une sur six environ est éclairée.' },
+  { title: 'Arcade', art: [door], dims: `${DOOR.w} × ${DOOR.h} px`, real: `${toMeters(DOOR.w)} × ${toMeters(DOOR.h)} m`, about: 'Le rez-de-chaussée sur rue : une grande baie cintrée (porte ou boutique, parfois éclairée) dans un mur à refends.' },
   { title: 'Module d\'immeuble', art: [house1.canvas], dims: `${CELL} × ${CELL} × ${FLOOR} px`, real: `${toMeters(CELL)} m de côté, un étage`, about: 'La brique du générateur : un étage sur une case. L\'atelier les empile (jusqu\'à 6) et le toit suit.' },
-  { title: 'Maison de quatre étages', art: [house4.canvas], dims: `${CELL * 2 + 1} × ${house4.h} px à l'écran`, real: `${toMeters(4 * FLOOR + ROOF)} m au faîtage`, about: 'Rez-de-chaussée et trois étages, comble à la Mansart : le brisis d\'ardoise, le dessus sous la neige.' },
+  { title: 'Immeuble haussmannien', art: [house6.canvas], dims: `${CELL * 2 + 1} × ${house6.h} px à l\'écran`, real: `${toMeters(6 * FLOOR + ROOF)} m au faîtage`, about: 'Rez-de-chaussée et cinq étages : refends et arcades en bas, balcons filants au 2e et au 5e, corniche épaisse, comble à la Mansart et ses lucarnes. La même hauteur d\'un bout à l\'autre de l\'îlot.' },
+  { title: 'Mobilier urbain', art: ['lamp', 'tree', 'bench', 'colonne', 'borne'].map(t => propSprite(t, 0).c), dims: 'réverbère 11 × 70 px', real: 'réverbère 3,5 m, arbre 6 m, colonne 2,8 m', about: 'Réverbère (il éclaire la nuit), platane nu sous la neige, banc, colonne Morris, borne. Posé dans les rues avec l\'outil Mobilier de l\'atelier.' },
 ];
 
 function lineup(z) {
-  const base = 6, items = [house4.canvas, door, pierreStand, pierrePlay, rat, ratSit, note];
+  const base = 6, items = [house6.canvas, propSprite('lamp', 0).c, door, pierreStand, pierrePlay, rat, ratSit, note, propSprite('colonne', 0).c, propSprite('tree', 0).c];
   const gap = 10;
   const w = 24 + items.reduce((s, c) => s + c.width + gap, 0);
   const h = Math.max(...items.map(c => c.height)) + base + 4;

@@ -5,8 +5,10 @@
 
    Format publié (data/ville.json) :
      { "w": 22, "h": 22, "seed": 1815, "start": [x, y],
-       "rows": ["0023340…", …] }   // un chiffre par colonne, 0 à 6 */
-import { MAX_FLOORS } from './scale.js?v=1.1.0';
+       "rows": ["0023340…", …],   // un chiffre par colonne, 0 à 7
+       "props": [["lamp", 315, 642, 0], …] }   // le mobilier : type, x, y (monde), variante */
+import { MAX_FLOORS } from './scale.js?v=1.2.0';
+import { generateProps } from './props.js?v=1.2.0';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
@@ -28,6 +30,7 @@ export function makeCity(data) {
   const city = {
     w, h, seed: data.seed || 1815, heights,
     start: data.start || [Math.floor(w / 2), Math.floor(h / 2)],
+    props: (data.props || []).map(p => [...p]),
     at(x, y) { return x < 0 || y < 0 || x >= w || y >= h ? -1 : heights[y * w + x]; },
     set(x, y, v) { if (x >= 0 && y >= 0 && x < w && y < h) heights[y * w + x] = Math.max(0, Math.min(MAX_FLOORS, v)); },
     isStreet(x, y) { return city.at(x, y) === 0; },
@@ -43,7 +46,7 @@ export function cityToData(city) {
     for (let x = 0; x < city.w; x++) r += city.heights[y * city.w + x];
     rows.push(r);
   }
-  return { w: city.w, h: city.h, seed: city.seed, start: city.start, rows };
+  return { w: city.w, h: city.h, seed: city.seed, start: city.start, rows, props: city.props.map(p => [...p]) };
 }
 
 // Les bouches d'égout, d'où sortent les rats : dans la rue, loin les unes des autres
@@ -57,10 +60,10 @@ function findGrates(city) {
   return out;
 }
 
-/* Un quartier de Paris en 1815, d'avant Haussmann : des rues un peu
-   tordues, des îlots clairsemés de maisons basses (1 à 3 étages, rarement 4)
-   par parcelles, des cours et des terrains vagues, une place où commence
-   Pierre. */
+/* Un quartier de Paris : des rues un peu tordues, des îlots clairsemés
+   d'immeubles haussmanniens (la même hauteur le long d'un îlot), quelques
+   maisons basses, des cours et des terrains vagues, une place où commence
+   Pierre, et le mobilier urbain (props.js). */
 export function generateQuarter(seed = 1815, w = 22, h = 22) {
   const r = rng(seed);
   const g = Array.from({ length: h }, () => new Array(w).fill(1));
@@ -99,16 +102,30 @@ export function generateQuarter(seed = 1815, w = 22, h = 22) {
   }
   // Les hauteurs, par parcelles de 1 à 3 cases le long de x
   for (let y = 0; y < h; y++) {
-    let x = 0;
+    let x = 0, rowFloors = 0;
     while (x < w) {
-      if (!g[y][x]) { x++; continue; }
+      if (!g[y][x]) { x++; rowFloors = 0; continue; }
       const len = 1 + Math.floor(r() * 3);
       // des terrains vagues entre les maisons, et des maisons basses
       const empty = y > 0 && y < h - 1 && x > 0 && x < w - 1 && r() < 0.25;
-      const floors = empty ? 0 : 1 + Math.floor(r() * r() * 3) + (r() < 0.1 ? 1 : 0);
+      // l'immeuble haussmannien : 5 ou 6 niveaux, la même corniche d'un bout à
+      // l'autre de l'îlot ; çà et là une maison plus basse d'avant les travaux
+      if (rowFloors === 0) rowFloors = r() < 0.65 ? 6 : r() < 0.6 ? 5 : 7;
+      const floors = empty ? 0 : r() < 0.15 ? 2 + Math.floor(r() * 2) : rowFloors;
       for (let k = 0; k < len && x < w && g[y][x]; k++, x++) g[y][x] = Math.min(MAX_FLOORS, floors);
     }
   }
   const rows = g.map(row => row.join(''));
-  return { w, h, seed, start: [px + 2, py + 2], rows };
+  // Le départ : la case de la place la plus dégagée vers l'avant (+x, +y),
+  // pour que les immeubles ne cachent pas Pierre dès la première image
+  let start = [px + 2, py + 2], best = -1;
+  for (let y = py - 1; y < py + 5; y++) for (let x = px - 1; x < px + 6; x++) {
+    if (g[y]?.[x] !== 0) continue;
+    let score = 0;
+    for (let dy = 0; dy < 5; dy++) for (let dx = 0; dx < 5; dx++) if (!(g[y + dy]?.[x + dx] ?? 1)) score++;
+    if (score > best) { best = score; start = [x, y]; }
+  }
+  const data = { w, h, seed, start, rows };
+  data.props = generateProps(makeCity(data));
+  return data;
 }

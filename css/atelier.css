@@ -47,3 +47,6 @@
   .tool-group.push { margin-left: 0; }
   .atelier-tools { gap: 4px 8px; padding: 4px 8px; }
 }
+
+/* Le choix de l'objet à poser (outil Mobilier) */
+.prop-kinds { padding-left: 10px; border-left: 1px solid rgba(255,255,255,.2); }

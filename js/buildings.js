@@ -4,21 +4,22 @@
    propre image, une fois, puis posée telle quelle dans la scène. Les morceaux
    s'adaptent à leurs voisins, à la façon de Townscaper :
    - une face cachée par un voisin aussi haut n'est pas peinte ;
-   - au rez-de-chaussée, une face sur rue reçoit parfois une porte ;
+   - au rez-de-chaussée, une face sur rue reçoit une arcade (porte ou
+     boutique), une face sur cour des fenêtres basses ;
    - le toit (un comble à la Mansart) prend le sens des voisins de même
      hauteur pour que les faîtages se raccordent ; un pignon ferme le bout
      quand le voisin est plus bas ;
-   - fenêtres (une face sur deux), fenêtres éclairées et cheminées sont
-     tirées au sort par cellule (toujours le même tirage pour la même case).
+   - façades haussmanniennes (voir paintFloor) ; fenêtres éclairées et
+     cheminées tirées au sort par cellule (même tirage pour la même case).
    Peu de détails, à dessein : des murs unis, des vitres noires, la neige.
 
    Projection (pixels du jeu, 1 px = 5 cm) : x écran = a − b, y écran =
    (a + b) / 2 − z. Dans l'image d'une colonne, le coin avant au sol est en
    (CELL, H − 1). Face A : le mur du côté +y (à gauche à l'écran, éclairé) ;
    face B : le mur du côté +x (à droite, à l'ombre). */
-import { RGB } from './palette.js?v=1.1.0';
-import { CELL, FLOOR, ROOF } from './scale.js?v=1.1.0';
-import { hash } from './city.js?v=1.1.0';
+import { RGB } from './palette.js?v=1.2.0';
+import { CELL, FLOOR, ROOF } from './scale.js?v=1.2.0';
+import { hash } from './city.js?v=1.2.0';
 
 const CHIMNEY_H = 16;
 export const COLUMN_W = CELL * 2 + 1;
@@ -65,28 +66,39 @@ export function renderColumn(city, i, j) {
     if (city.at(i + 1, j) <= k) paintFloor('B', k);
   }
 
+  /* Un étage de façade haussmannienne, sans détail superflu : ce qui la
+     fait reconnaître, c'est le rythme. Rez-de-chaussée à refends (bossages
+     horizontaux) et grandes arcades ; au-dessus, deux hautes portes-fenêtres
+     par module, alignées d'un étage à l'autre ; balcons filants au 2e et au
+     dernier étage ; une corniche épaisse sous le comble. */
   function paintFloor(face, k) {
     const T = TONES[face];
     const put2 = face === 'A' ? faceA : faceB;
     const neighbour = face === 'A' ? city.at(i, j + 1) : city.at(i + 1, j);
     const onStreet = neighbour === 0;
-    const r = hash(i, j, k, face === 'A' ? 1 : 2, seed);
-    // Ce qui perce le mur : une porte en bas sur la rue, sinon une fenêtre sur deux
-    let opening = 'none';
-    if (k === 0) opening = onStreet && r < 0.5 ? 'door' : 'none';
-    else if (r < 0.55) opening = 'window';
-    const isLit = opening === 'window' && hash(i, j, k, face === 'A' ? 5 : 6, seed) < 0.22;
-    if (isLit && face === 'A') lit.push(k);
+    const balcony = k > 0 && ((k === 2 && n >= 4) || (k === n - 1 && n >= 5));
+    const fid = face === 'A' ? 1 : 2;
+    const litWin = [hash(i, j, k, fid, 5, seed) < 0.16, hash(i, j, k, fid, 6, seed) < 0.16];
+    const arcadeLit = hash(i, j, fid, 7, seed) < 0.3;
+    if ((litWin[0] || litWin[1]) && face === 'A') lit.push(k);
 
     for (let u = 0; u < CELL; u++) {
-      // L'amas de neige au pied du mur
       const drift = k === 0 && neighbour !== -1 ? 2 + Math.round(Math.sin(u * 0.2 + i * 3 + j)) : 0;
       for (let v = 0; v < FLOOR; v++) {
         let key = T.wall;
-        // une corniche simple entre les étages, et sous le toit
-        if (v === FLOOR - 1) key = k < n - 1 ? T.snowS : T.dark;
-        if (opening === 'window') key = windowPixel(u, v, isLit, T) || key;
-        else if (opening === 'door') key = doorPixel(u, v, T) || key;
+        if (k === 0) {
+          // les refends du rez-de-chaussée
+          if (v % 6 === 5) key = T.mid;
+          if (onStreet) key = arcadePixel(u, v, T, arcadeLit) || key;
+          else key = windowPixel(u, v, false, T, 22) || key;
+        } else {
+          key = windowPixel(u, v, litWin[u < CELL / 2 ? 0 : 1], T) || key;
+          if (balcony) key = balconyPixel(u, v, T) || key;
+          else if (v === 4 && ((u >= 7 && u <= 20) || (u >= 39 && u <= 52))) key = T.snow; // appuis
+        }
+        // corniches : un trait entre les étages, une épaisse sous le comble
+        if (k < n - 1 && v === FLOOR - 1) key = T.snowS;
+        if (k === n - 1 && v >= 53) key = v === 53 ? T.dark : v === FLOOR - 1 ? T.snow : T.frame;
         if (v < drift) key = T.snow;
         put2(u, k * FLOOR + v, key);
       }
@@ -110,7 +122,11 @@ export function renderColumn(city, i, j) {
         const near = alongX ? b > CELL / 2 : a > CELL / 2;
         const litSide = alongX && near;
                 let key;
+        // les lucarnes : deux par module, sur le brisis tourné vers nous
+        const along = alongX ? a : b;
+        const dormer = near && d >= 2 && d < 9 && ((along >= 11 && along <= 19) || (along >= 41 && along <= 49));
         if (d < 1) key = 'nuit';
+        else if (dormer) key = d >= 8 ? 'neige' : (along === 11 || along === 19 || along === 41 || along === 49) ? 'pierreL' : 'nuit';
         else if (d < 10) key = near ? 'ardoise' : 'nuit2';
         else key = litSide ? 'neige' : near ? 'neigeM' : 'neigeO';
         put(x, y, key);
@@ -130,7 +146,7 @@ export function renderColumn(city, i, j) {
       }
     }
     // Les cheminées, sur le faîtage
-    const nCh = hash(i, j, 41, seed) < 0.3 ? 1 : 0;
+    const nCh = hash(i, j, 41, seed) < 0.55 ? 1 : 0;
     for (let c = 0; c < nCh; c++) {
       const along = hash(i, j, 42 + c, seed) < 0.5 ? 9 : 43;
       const zr = zb + ROOF - 6;
@@ -160,17 +176,34 @@ export function renderColumn(city, i, j) {
   return { canvas, w: W, h: H, chimneys, lit };
 }
 
-// Une fenêtre de 18 × 30 px : un cadre, une vitre noire (ou blanche si éclairée), une croisée
-function windowPixel(u, v, isLit, T) {
-  const x0 = 21, x1 = 38, y0 = 12, y1 = 41;
-  if (u < x0 || u > x1 || v < y0 || v > y1) return v === y0 - 1 && u >= x0 - 1 && u <= x1 + 1 ? T.snow : null;
-  if (u === x0 || u === x1 || v === y0 || v === y1) return T.dark;
-  if (isLit) return u === 29 || v === 27 ? T.dark : 'ocre';
+// Deux portes-fenêtres de 12 × 40 px par module, alignées d'un étage à l'autre
+// (au rez-de-chaussée sur cour : plus basses, h)
+function windowPixel(u, v, isLit, T, h = 40) {
+  const x0 = u < CELL / 2 ? 8 : 40, x1 = x0 + 11, y0 = 6, y1 = y0 + h - 1;
+  if (u < x0 || u > x1 || v < y0 || v > y1) return null;
+  if (u === x0 || u === x1 || v === y1) return T.dark;
+  if (isLit) return u === x0 + 6 || v === y0 + 28 ? T.dark : 'ocre';
   return 'nuit';
 }
 
-// Une porte de 20 × 44 px, toute noire, sur une marche
-function doorPixel(u, v, T) {
-  if (u < 20 || u > 39 || v > 43) return null;
-  return v < 2 ? T.snow : 'nuit';
+// Le balcon filant : une dalle, une rambarde à barreaux, la neige sur la main courante
+function balconyPixel(u, v, T) {
+  if (v === 0) return T.dark;
+  if (v >= 1 && v <= 4) return u % 2 === 0 || v === 4 ? 'nuit' : null;
+  if (v === 5) return T.snow;
+  return null;
+}
+
+// L'arcade du rez-de-chaussée : une grande baie cintrée (porte ou boutique)
+function arcadePixel(u, v, T, isLit) {
+  const cx = 29.5, half = 13, top = 46;
+  const dx = Math.abs(u - cx);
+  if (dx > half + 1 || v > top + 1) return null;
+  const inside = v < top - 8 || (dx / half) ** 2 + ((v - (top - 8)) / 8) ** 2 <= 1;
+  const rim = !inside && (dx / (half + 1)) ** 2 + ((v - (top - 8)) / 9) ** 2 <= 1;
+  if (rim || (inside && dx > half)) return T.dark;
+  if (!inside) return null;
+  if (v < 2) return T.snow;
+  if (isLit) return dx < 1 || v === 30 ? T.dark : 'ocre';
+  return 'nuit';
 }
