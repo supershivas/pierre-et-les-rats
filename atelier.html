@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#1C1C1E"/>
+<title>Atelier — Pierre et les rats</title>
+<link rel="icon" href="favicon-atelier.png" sizes="32x32" type="image/png"/>
+<link rel="icon" href="favicon-atelier.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css"/>
+<link rel="stylesheet" href="css/style.css?v=1.0.0"/>
+<link rel="stylesheet" href="css/atelier.css?v=1.0.0"/>
+<link rel="stylesheet" href="mobile.css?v=1.0.0"/>
+</head>
+<body class="atelier-page">
+<!-- L'atelier : une app à part. On y bâtit le quartier, à la façon de
+     Townscaper (un clic ajoute un étage, l'autre outil en retire), on
+     enregistre dans ce navigateur et on publie data/ville.json dans le dépôt. -->
+<div class="atelier">
+<header class="topbar safe-top">
+  <a class="brand" href="./" title="Revenir au jeu">
+    <span class="brand-mark"><i class="ti ti-music" aria-hidden="true"></i></span>
+    <span class="brand-name">Pierre et les rats</span>
+  </a>
+  <span class="atelier-badge">Atelier</span>
+  <div class="topbar-actions">
+    <a class="icon-btn icon-only" href="./#reglages" title="Réglages" aria-label="Réglages">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+    </a>
+  </div>
+</header>
+
+<nav class="atelier-tools" aria-label="Outils">
+  <div class="tool-group" role="radiogroup" aria-label="Outil">
+    <button class="tool on" type="button" data-tool="build" aria-label="Bâtir" role="radio" aria-checked="true" title="Bâtir : un étage de plus (B)"><i class="ti ti-building" aria-hidden="true"></i><span>Bâtir</span></button>
+    <button class="tool" type="button" data-tool="raze" aria-label="Démolir" role="radio" aria-checked="false" title="Démolir : un étage de moins (D)"><i class="ti ti-eraser" aria-hidden="true"></i><span>Démolir</span></button>
+    <button class="tool" type="button" data-tool="start" aria-label="Départ de Pierre" role="radio" aria-checked="false" title="Le point de départ de Pierre (P)"><i class="ti ti-flag" aria-hidden="true"></i><span>Départ</span></button>
+  </div>
+  <div class="tool-group">
+    <button id="undo" class="tool" type="button" title="Annuler" aria-label="Annuler"><i class="ti ti-arrow-back-up" aria-hidden="true"></i></button>
+    <button id="zoom-out" class="tool" type="button" title="Dézoomer" aria-label="Dézoomer"><i class="ti ti-zoom-out" aria-hidden="true"></i></button>
+    <button id="zoom-in" class="tool" type="button" title="Zoomer" aria-label="Zoomer"><i class="ti ti-zoom-in" aria-hidden="true"></i></button>
+  </div>
+  <div class="tool-group">
+    <button id="regen" aria-label="Nouveau quartier" class="tool" type="button" title="Tirer un nouveau quartier au sort"><i class="ti ti-dice-5" aria-hidden="true"></i><span>Nouveau quartier</span></button>
+    <button id="revert" aria-label="Revenir au quartier publié" class="tool" type="button" title="Revenir au quartier publié"><i class="ti ti-restore" aria-hidden="true"></i><span>Publié</span></button>
+  </div>
+  <div class="tool-group push">
+    <span id="pending" class="pending">Rien à publier</span>
+    <button id="token" class="tool" type="button" title="Jeton GitHub" aria-label="Jeton GitHub"><i class="ti ti-key" aria-hidden="true"></i></button>
+    <button id="publish" aria-label="Publier" class="tool primary" type="button" disabled><i class="ti ti-cloud-upload" aria-hidden="true"></i><span>Publier</span></button>
+  </div>
+</nav>
+
+<main id="board" class="board">
+  <canvas id="view" class="view" aria-label="Le quartier, en isométrique"></canvas>
+  <p class="board-help">Clic : un étage de plus (jusqu'à 6) · Démolir : un de moins · Glisser pour se déplacer</p>
+</main>
+</div>
+
+<dialog id="token-dialog" class="modal" aria-labelledby="token-title">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="token-title">Jeton GitHub</h2>
+      <button class="icon-btn icon-only on-light" type="button" data-close aria-label="Fermer"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
+    <p class="hint-text">Pour publier le quartier dans le dépôt <b>supershivas/pierre-et-les-rats</b>, colle un jeton personnel « fine-grained », limité à ce dépôt, avec le droit <b>Contents : Read and write</b>. Il reste dans ce navigateur, ne part que vers api.github.com et n'est jamais exporté.</p>
+    <a class="btn-ghost" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener"><i class="ti ti-external-link" aria-hidden="true"></i> Créer un jeton</a>
+    <label class="field"><span>Jeton</span><input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…"/></label>
+    <div class="row-buttons">
+      <button id="token-clear" class="btn-ghost" type="button">Oublier</button>
+      <button id="token-save" class="btn-primary" type="button">Enregistrer</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" hidden></div>
+<script type="module" src="js/atelier.js?v=1.0.0"></script>
+</body>
+</html>

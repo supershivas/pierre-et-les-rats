@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#1C1C1E"/>
+<title>Échelle — Pierre et les rats</title>
+<link rel="icon" href="favicon.ico" sizes="any"/>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css"/>
+<link rel="stylesheet" href="css/style.css?v=1.0.0"/>
+<link rel="stylesheet" href="css/echelle.css?v=1.0.0"/>
+<link rel="stylesheet" href="mobile.css?v=1.0.0"/>
+</head>
+<body class="echelle-page">
+<header class="topbar safe-top">
+  <a class="brand" href="./" title="Revenir au jeu">
+    <span class="brand-mark"><i class="ti ti-music" aria-hidden="true"></i></span>
+    <span class="brand-name">Pierre et les rats</span>
+  </a>
+  <div class="topbar-actions">
+    <a class="icon-btn icon-only" href="./#reglages" title="Réglages" aria-label="Réglages">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+    </a>
+  </div>
+</header>
+<main class="echelle">
+  <div class="echelle-head">
+    <h1>Planche d'échelle</h1>
+    <p>Un pixel du jeu vaut <b>5 cm</b>. Une trace de rat fait un pixel, un rat dix, Pierre vingt-six ; un étage de maison, soixante. Tout est dessiné à cette échelle.</p>
+    <label class="field zoom-field"><span>Agrandissement</span>
+      <select id="zoom">
+        <option value="2">× 2</option>
+        <option value="3" selected>× 3</option>
+        <option value="4">× 4</option>
+        <option value="6">× 6</option>
+      </select>
+    </label>
+  </div>
+  <section class="lineup-wrap" aria-label="Tout ensemble, à la même échelle">
+    <h2 class="section-label">Côte à côte, sur la neige</h2>
+    <div class="lineup-scroll"><canvas id="lineup" class="px"></canvas></div>
+  </section>
+  <section aria-label="Les éléments un par un">
+    <h2 class="section-label">Un par un</h2>
+    <ul id="cards" class="cards"></ul>
+  </section>
+</main>
+<script type="module" src="js/echelle.js?v=1.0.0"></script>
+</body>
+</html>

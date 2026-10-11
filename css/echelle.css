@@ -1,0 +1,16 @@
+/* La planche d'échelle : une page qui défile, sur fond clair */
+body.echelle-page { overflow: auto; background: var(--bg); display: block; }
+.echelle { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 24px; }
+.echelle-head { display: flex; flex-direction: column; gap: 10px; max-width: 680px; }
+.echelle-head h1 { font-family: var(--font-title); font-size: 1.6rem; }
+.echelle-head p { color: var(--text-secondary); line-height: 1.5; }
+.zoom-field { max-width: 200px; }
+.px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+.lineup-wrap { display: flex; flex-direction: column; gap: 10px; }
+.lineup-scroll { overflow-x: auto; border-radius: var(--radius-md); background: #1f2a44; padding: 12px; }
+.cards { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.card-art { display: flex; align-items: flex-end; justify-content: center; gap: 10px; min-height: 120px; padding: 10px; border-radius: var(--radius-md); background: #1f2a44; overflow-x: auto; }
+.card h3 { font-size: .95rem; }
+.card .dims { font-family: var(--font-mono); font-size: .85rem; color: var(--accent); }
+.card p { font-size: .85rem; color: var(--text-secondary); line-height: 1.4; }

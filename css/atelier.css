@@ -1,0 +1,49 @@
+/* L'atelier (atelier.html) : une app à part. En-tête sombre #1C1C1E,
+   « ATELIER » encadré en mono ; écran fixe, seule la zone de travail bouge. */
+.atelier { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+.atelier-page .topbar { background: #1C1C1E; border-bottom: 0; }
+.atelier-page .brand-name, .atelier-page .topbar .icon-btn { color: #fff; }
+.atelier-page .brand-mark { background: rgba(255,255,255,.12); color: #fff; }
+.atelier-badge {
+  flex: none; color: #fff; border: 1px solid rgba(255,255,255,.8); border-radius: 3px;
+  padding: 2px 8px; font-family: var(--font-mono); font-size: .75rem; letter-spacing: .3em; text-transform: uppercase;
+}
+
+.atelier-tools {
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  padding: 6px 12px; background: #2a2a2d; color: #fff;
+}
+.tool-group { display: flex; align-items: center; gap: 4px; }
+.tool-group.push { margin-left: auto; }
+.tool {
+  min-width: 44px; min-height: 44px; padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: none; border: 1px solid transparent; border-radius: var(--radius-md);
+  color: rgba(255,255,255,.75); font: inherit; font-size: .88rem; cursor: pointer;
+}
+.tool i { font-size: 20px; }
+.tool.on { color: #fff; border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.08); }
+.tool.primary { background: var(--accent); color: #fff; }
+.tool.confirm { border-color: var(--accent); color: #fff; background: rgba(192,57,43,.35); }
+.tool:disabled { opacity: .45; cursor: default; }
+@media (hover: hover) {
+  .tool:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,.1); }
+  .tool.primary:hover:not(:disabled) { background: var(--accent-hover); }
+}
+.pending { font-size: .85rem; color: rgba(255,255,255,.7); }
+.pending.some { color: #f0c27a; }
+
+.board { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #1f2a44; touch-action: none; }
+.view { position: absolute; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; }
+.board-help {
+  position: absolute; left: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100% - 24px); padding: 6px 10px; border-radius: var(--radius-md);
+  background: rgba(28,28,30,.8); color: rgba(255,255,255,.8); font-size: .8rem; pointer-events: none;
+}
+.row-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 768px) {
+  .tool span { display: none; }
+  .tool-group.push { margin-left: 0; }
+  .atelier-tools { gap: 4px 8px; padding: 4px 8px; }
+}

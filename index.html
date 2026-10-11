@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#1C1C1E"/>
+<title>Pierre et les rats</title>
+<link rel="icon" href="favicon.ico" sizes="any"/>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&family=DM+Mono:wght@400&family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css"/>
+<link rel="stylesheet" href="css/style.css?v=1.0.0"/>
+<link rel="stylesheet" href="mobile.css?v=1.0.0"/>
+</head>
+<body>
+
+<header class="topbar safe-top">
+  <a id="home" class="brand" href="./" title="Revenir à l'accueil">
+    <span class="brand-mark"><i class="ti ti-music" aria-hidden="true"></i></span>
+    <span class="brand-name">Pierre et les rats</span>
+  </a>
+  <div class="topbar-actions">
+    <button id="open-settings" class="icon-btn icon-only" type="button" title="Réglages" aria-label="Réglages">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+    </button>
+  </div>
+</header>
+
+<main id="screen" class="screen">
+  <canvas id="game" class="game" aria-label="Paris, hiver 1815"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- Le compte des rats, la flûte, les consignes : dans la palette du jeu -->
+  <div id="hud" class="hud" hidden>
+    <p class="hud-count"><span id="rat-count">0</span> <span id="rat-label">rat</span></p>
+  </div>
+  <p id="message" class="message gone" role="status"></p>
+  <p id="hint" class="hint gone">ZQSD ou flèches pour marcher · Maj pour courir · Espace pour jouer</p>
+  <button id="play" class="play" type="button" hidden aria-label="Jouer de la flûte (Espace)" title="Jouer de la flûte (maintenir Espace)">
+    <i class="ti ti-music" aria-hidden="true"></i>
+  </button>
+
+  <!-- L'écran d'accueil, sans sous-titre -->
+  <section id="title" class="title-screen" aria-labelledby="title-name">
+    <h1 id="title-name" class="title-name">Pierre <span>et les</span> rats</h1>
+    <div class="title-actions">
+      <button id="title-resume" class="scrap primary" type="button" hidden>Reprendre</button>
+      <button id="title-new" class="scrap" type="button"><span>Nouvelle partie</span></button>
+      <button id="title-settings" class="scrap" type="button">Réglages</button>
+    </div>
+    <p id="draft-note" class="draft-note" hidden>Quartier de l'atelier, pas encore publié.</p>
+  </section>
+
+  <!-- Le prologue, sur le noir -->
+  <div id="prologue" class="prologue" hidden>
+    <p>Paris, hiver 1815.</p>
+    <p>L'Empereur est parti. La Seine a gelé, et les cheminées fument à peine.</p>
+    <p>Pierre n'a plus rien, qu'une flûte. Il joue, et dans les égouts, quelque chose l'entend.</p>
+    <span class="prologue-skip">clic ou touche pour passer</span>
+  </div>
+</main>
+
+<dialog id="settings" class="modal" aria-labelledby="settings-title">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="settings-title">Réglages</h2>
+      <button id="close-settings" class="icon-btn icon-only on-light" type="button" aria-label="Fermer">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <button id="new-game" class="btn-ghost" type="button">
+      <i class="ti ti-refresh" aria-hidden="true"></i> <span>Nouvelle partie</span>
+    </button>
+
+    <div class="field">
+      <label for="opt-music">Musique de la flûte</label>
+      <input id="opt-music" type="range" min="0" max="100" step="5"/>
+    </div>
+
+    <label class="field">
+      <span>Taille des pixels</span>
+      <select id="opt-zoom">
+        <option value="-1">Plus fins (on voit plus loin)</option>
+        <option value="0">Automatique</option>
+        <option value="1">Plus gros</option>
+        <option value="2">Très gros</option>
+      </select>
+    </label>
+
+    <section class="stats" aria-label="Partie">
+      <div><span class="stat-value" id="stat-rats">0</span><span class="stat-label">rats dans l'armée</span></div>
+      <div><span class="stat-value" id="stat-time">0</span><span class="stat-label">minutes de flûte</span></div>
+    </section>
+
+    <a class="btn-ghost" href="atelier.html">
+      <i class="ti ti-brush" aria-hidden="true"></i> Atelier (bâtir le quartier)
+    </a>
+    <a class="btn-ghost" href="echelle.html">
+      <i class="ti ti-ruler-2" aria-hidden="true"></i> Planche d'échelle
+    </a>
+
+    <div class="settings-foot">
+      <p class="version" id="version">v…</p>
+      <h3 class="section-label">Dernières versions</h3>
+      <ol id="changelog" class="changelog"></ol>
+      <button id="export" class="btn-primary" type="button">
+        <i class="ti ti-download" aria-hidden="true"></i> Exporter les données (JSON)
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script type="module" src="js/main.js?v=1.0.0"></script>
+</body>
+</html>
