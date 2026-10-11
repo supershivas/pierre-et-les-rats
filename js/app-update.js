@@ -6,7 +6,7 @@
    seulement hors saisie, toast « Mis à jour en vX.Y.Z » après rechargement.
 
    Module ES sans dépendance :
-     import { startUpdateCheck, loadChangelog } from './app-update.js?v=1.0.0'
+     import { startUpdateCheck, loadChangelog } from './app-update.js'
      startUpdateCheck({ onUpdated: v => toast(`Mis à jour en v${v}`) })
      const entries = await loadChangelog()   // 5 dernières versions
    Les URL par défaut sont relatives au document (version.json, CHANGELOG.md) :

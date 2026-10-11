@@ -19,7 +19,8 @@ function stamp(file, patterns) {
   if (s !== before) { writeFileSync(path, s); changed++; }
 }
 // Les modules : `from './x.js'`, `import('./x.js')`
-for (const f of readdirSync(join(root, 'js')).filter(f => f.endsWith('.js'))) {
+// app-update.js vient du design system : on n'y touche pas
+for (const f of readdirSync(join(root, 'js')).filter(f => f.endsWith('.js') && f !== 'app-update.js')) {
   stamp(`js/${f}`, [
     /(from\s+')(\.{1,2}\/[^'?]+\.js)(?:\?v=[^']*)?(')/g,
     /(import\(\s*')(\.{1,2}\/[^'?]+\.js)(?:\?v=[^']*)?(')/g,
