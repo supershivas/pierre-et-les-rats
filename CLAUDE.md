@@ -23,7 +23,9 @@ dans la neige. L'armée grossit à mesure qu'il joue.
 10 × 4 px, queue comprise. Note : 4 × 6 px. Pierre : 13 × 26 px (1,30 m).
 Fenêtre : 18 × 30 px. Porte : 20 × 44 px. Module d'immeuble : une case de
 60 × 60 px, un étage de 60 px (3 m), comble de 34 px, 6 étages au plus.
-La vue montre environ 240 px du jeu en hauteur, agrandis d'un facteur entier.
+La vue montre environ 600 px du jeu en hauteur (v1.1.0), agrandis d'un
+facteur entier : Pierre y est petit, comme le viking de Kingvi, et n'est
+qu'**une silhouette noire** (`silhouette: true` de `drawPierre`).
 
 ### Palette du jeu (js/palette.js, variables --g-* de css/style.css)
 
@@ -55,9 +57,22 @@ planche gardent les tokens du design system.
 
 - `index.html`, `js/main.js` : en-tête, accueil (le quartier défile derrière
   le titre), prologue, HUD, commandes, réglages, sauvegarde, mise à jour.
-- `js/game.js` : simulation et rendu (Pierre, rats, carte des distances
-  pour les guider dans les rues, traces, notes, fumées, neige, estompage
-  des maisons qui cachent Pierre, silhouette tramée quand il est caché).
+- `js/game.js` : la boucle (Pierre, appel des rats, traces dans un tampon
+  circulaire typé, notes, fumées, neige, nuit, estompage des maisons qui
+  cachent Pierre, silhouette tramée quand il est caché). `?rats=2000` dans
+  l'adresse charge une nuée d'essai ; `window.pierreStats()` donne les
+  temps moyens (ms) de simulation et de rendu.
+- `js/swarm.js` : **la nuée**, pensée pour des milliers de rats (4 000
+  simulés au plus, `MAX_RATS` dans game.js ; au-delà, l'armée est comptée).
+  Tableaux typés, grille de voisinage reconstruite par tri par comptage,
+  pilotage à la Reynolds (séparation, alignement, errance) plus un but :
+  champ de vecteurs vers Pierre (carte des distances sur les rues), puis
+  une place dans un disque qui tourne autour de lui. Machine à états :
+  course, va-et-vient, dressé, saut, demi-tour, toilette ; pile (z) là où
+  c'est serré. Rendu : pixels écrits dans un tampon Uint32, masqués par le
+  tampon de profondeur des maisons, un seul envoi par image.
+- `js/rat-sprites.js` : les poses des rats (galop ×3, vers nous, de dos,
+  dressé ×2, saut, en boule), en listes de pixels et en petits canvas.
 - `js/city.js` : le modèle du quartier (une hauteur par case, 0 = rue), le
   hasard déterministe `hash`, le générateur de quartier `generateQuarter`
   (clairsemé : maisons basses, terrains vagues, environ 45 % de cases bâties).
@@ -69,7 +84,8 @@ planche gardent les tokens du design system.
 - `js/ground.js` : la neige des rues (une grande image), ombres portées,
   congères, bouches d'égout ; traces imprimées et effacées.
 - `js/scene.js` : tri arrière → avant des colonnes et des sprites, partagé
-  par le jeu et l'atelier.
+  par le jeu et l'atelier ; `depthMap()`, le tampon de profondeur des
+  maisons en écran monde (calculé une fois) qui cache les rats.
 - `js/sprites.js` : Pierre, rat, notes, en tableaux de pixels.
 - `js/audio.js` : la flûte (WebAudio) et son air.
 - `js/city-store.js` : chargement du quartier publié et du brouillon.
@@ -98,4 +114,8 @@ planche gardent les tokens du design system.
   scène, clair autour de Pierre puis de plus en plus dense (`NIGHT`,
   `buildDarkness` dans game.js) ; les notes, la neige qui tombe et la
   silhouette de Pierre sont dessinées par-dessus.
+- Performances (Chromium sans carte graphique, vue 1280 × 760) : 3 000
+  rats → simulation 4,4 ms, rendu 9,7 ms (7,8 ms sans rats). Un drawImage
+  par rat coûtait 12 ms de plus ; un envoi du tampon par diagonale, encore
+  plus. Ne pas revenir en arrière.
 - Le titre utilise IM Fell English (Google Fonts), propre au jeu.

@@ -1,11 +1,11 @@
 /* L'app : l'en-tête, l'écran d'accueil, le prologue, le HUD, les commandes
    (clavier et pouce), les réglages, la sauvegarde et la mise à jour. */
-import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=1.0.2';
-import { makeCity } from './city.js?v=1.0.2';
-import { loadCity, readDraft } from './city-store.js?v=1.0.2';
-import { createGame } from './game.js?v=1.0.2';
-import { makeFlute } from './audio.js?v=1.0.2';
-import { MOVE, keyIs, stopTypeahead } from './keys.js?v=1.0.2';
+import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=1.1.0';
+import { makeCity } from './city.js?v=1.1.0';
+import { loadCity, readDraft } from './city-store.js?v=1.1.0';
+import { createGame } from './game.js?v=1.1.0';
+import { makeFlute } from './audio.js?v=1.1.0';
+import { MOVE, keyIs, stopTypeahead } from './keys.js?v=1.1.0';
 
 const SAVE_KEY = 'pierre:partie';
 const PREFS_KEY = 'pierre:prefs';
@@ -46,6 +46,8 @@ function newGameObject(fromSave) {
   if (game) game.destroy();
   game = createGame({
     canvas: $('game'), city, save: fromSave,
+    // ?rats=2000 dans l'adresse : pour éprouver la nuée (essais de performance)
+    testRats: Math.min(4000, +new URLSearchParams(location.search).get('rats') || 0),
     onRats: n => updateCount(n),
     onMessage: m => showMessage(m),
   });
@@ -53,6 +55,7 @@ function newGameObject(fromSave) {
   updateCount(game.army);
 }
 newGameObject(save);
+window.pierreStats = () => game.stats; // pour les essais de performance
 game.setAttract(true);
 game.resume();
 if (draft) $('draft-note').hidden = false;

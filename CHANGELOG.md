@@ -1,5 +1,10 @@
 # Historique
 
+## 1.1.0 — 2026-10-11
+- Une vraie nuée : les rats grouillent sans arrêt, vont dans tous les sens, se dressent, sautent, se retournent, se lèchent et se montent dessus
+- La nuée tient des milliers de rats (essayé jusqu'à 4 000) ; ils sortent des égouts par groupes de plus en plus gros
+- Pierre n'est plus qu'une petite silhouette noire, et on voit bien plus loin autour de lui
+
 ## 1.0.2 — 2026-10-11
 - Il fait nuit : le quartier s'enfonce dans le noir, seule une lueur entoure Pierre
 

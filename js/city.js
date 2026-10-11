@@ -6,7 +6,7 @@
    Format publié (data/ville.json) :
      { "w": 22, "h": 22, "seed": 1815, "start": [x, y],
        "rows": ["0023340…", …] }   // un chiffre par colonne, 0 à 6 */
-import { MAX_FLOORS } from './scale.js?v=1.0.2';
+import { MAX_FLOORS } from './scale.js?v=1.1.0';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {

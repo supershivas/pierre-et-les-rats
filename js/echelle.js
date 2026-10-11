@@ -1,10 +1,11 @@
 /* La planche d'échelle : les premiers éléments du jeu, côte à côte puis un par
    un, dessinés par le même code que le jeu (sprites.js, buildings.js). */
-import { makeCity, hash } from './city.js?v=1.0.2';
-import { renderColumn } from './buildings.js?v=1.0.2';
-import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.2';
-import { PAL } from './palette.js?v=1.0.2';
-import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.0.2';
+import { makeCity, hash } from './city.js?v=1.1.0';
+import { renderColumn } from './buildings.js?v=1.1.0';
+import { drawPierre, drawNote } from './sprites.js?v=1.1.0';
+import { ATLAS } from './rat-sprites.js?v=1.1.0';
+import { PAL } from './palette.js?v=1.1.0';
+import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.1.0';
 
 const $ = id => document.getElementById(id);
 const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
@@ -43,9 +44,7 @@ function crop(src, x, y, w, h) {
 // Un bout de neige, avec ce qu'on y dessine
 function snow(w, h, paint) {
   const c = canvasOf(w, h), g = c.getContext('2d');
-  g.fillStyle = PAL.neige; g.fillRect(0, 0, w, h);
-  g.fillStyle = PAL.neigeM;
-  for (let k = 0; k < w * h / 14; k++) g.fillRect(Math.floor(hash(k, 1) * w), Math.floor(hash(k, 2) * h), 1, 1);
+  g.fillStyle = PAL.neigeM; g.fillRect(0, 0, w, h);
   paint(g);
   return c;
 }
@@ -65,21 +64,22 @@ const door = crop(elev, 18, elev.height - 48, 24, 48);
 const win = crop(elev, 11, elev.height - FLOOR - 48, 38, 48);
 
 const sprite = (w, h, draw) => { const c = canvasOf(w, h); draw(c.getContext('2d')); return c; };
-const pierreStand = sprite(18, 28, g => drawPierre(g, 8, 27, { shadow: false }));
-const pierreWalk = sprite(18, 28, g => drawPierre(g, 8, 27, { pose: 'walk', t: 0.01, shadow: false }));
-const pierrePlay = sprite(22, 28, g => drawPierre(g, 8, 27, { pose: 'play', shadow: false }));
-const rat = sprite(12, 6, g => drawRat(g, 6, 5, { moving: true }));
-const ratSit = sprite(12, 6, g => drawRat(g, 6, 5, {}));
+const pierreStand = sprite(18, 28, g => drawPierre(g, 8, 27, { shadow: false, silhouette: true }));
+const pierreWalk = sprite(18, 28, g => drawPierre(g, 8, 27, { pose: 'walk', t: 0.01, shadow: false, silhouette: true }));
+const pierrePlay = sprite(22, 28, g => drawPierre(g, 8, 27, { pose: 'play', shadow: false, silhouette: true }));
+// Les poses des rats (rat-sprites.js) : galop, vers nous, de dos, dressé, saut, toilette
+const RAT_POSES = [...ATLAS.side.map(f => f[0].c), ATLAS.down[0][0].c, ATLAS.up[0][0].c, ATLAS.rear[0][0].c, ATLAS.rear[1][0].c, ATLAS.jump[0][0].c, ATLAS.curl[0][0].c];
+const rat = RAT_POSES[0], ratSit = ATLAS.rear[0][0].c;
 const note = sprite(6, 8, g => drawNote(g, 1, 1, 0));
-const ratTraces = snow(24, 10, g => { g.fillStyle = PAL.neigeM; for (let k = 0; k < 5; k++) g.fillRect(2 + k * 4, 4 + (k % 2 ? 1 : -1), 1, 1); });
-const pierreTraces = snow(30, 12, g => { g.fillStyle = PAL.neigeO; for (let k = 0; k < 4; k++) g.fillRect(3 + k * 7, 5 + (k % 2 ? 2 : -2), 2, 1); });
+const ratTraces = snow(24, 10, g => { g.fillStyle = PAL.neigeO; for (let k = 0; k < 5; k++) g.fillRect(2 + k * 4, 4 + (k % 2 ? 1 : -1), 1, 1); });
+const pierreTraces = snow(30, 12, g => { g.fillStyle = PAL.nuit2; for (let k = 0; k < 4; k++) g.fillRect(3 + k * 7, 5 + (k % 2 ? 2 : -2), 2, 1); });
 
 const CARDS = [
   { title: 'Trace de rat', art: [ratTraces], dims: '1 × 1 px', real: '5 cm', about: 'Un pixel, plus sombre que la neige, tous les 5 px de course, en quinconce. La neige qui tombe les recouvre en deux à trois minutes.' },
   { title: 'Traces de Pierre', art: [pierreTraces], dims: '2 × 1 px', real: '10 × 5 cm', about: 'Une empreinte de chaussure d\'enfant tous les 8 px, gauche, droite.' },
-  { title: 'Rat', art: [rat, ratSit], dims: `${RAT.w} × ${RAT.h} px`, real: `${toMeters(RAT.w)} m, queue comprise`, about: 'Deux temps de course et une pose arrêtée. Une petite ombre noire, le dos à peine plus clair.' },
+  { title: 'Rat', art: RAT_POSES, dims: `${RAT.w} × ${RAT.h} px`, real: `${toMeters(RAT.w)} m, queue comprise`, about: 'Neuf poses : trois temps de galop de profil, vers nous, de dos, dressé (deux temps : il renifle), en plein saut, roulé en boule. La nuée en tire des milliers à la fois.' },
   { title: 'Note de musique', art: [note], dims: `${NOTE.w} × ${NOTE.h} px`, real: '—', about: 'Sort de la flûte à chaque note jouée, monte en ondulant et se trame en s\'effaçant.' },
-  { title: 'Pierre', art: [pierreStand, pierreWalk, pierrePlay], dims: `${PIERRE.w} × ${PIERRE.h} px`, real: `${toMeters(PIERRE.h)} m`, about: 'Un enfant de dix ans, en noir, le visage blanc dans la nuit. Debout, en marche, et jouant de la flûte (qui dépasse de 4 px).' },
+  { title: 'Pierre', art: [pierreStand, pierreWalk, pierrePlay], dims: `${PIERRE.w} × ${PIERRE.h} px`, real: `${toMeters(PIERRE.h)} m`, about: 'Une silhouette noire, rien de plus : debout, en marche, jouant de la flûte. Dans le jeu, il est tout petit dans l\'écran (la vue montre environ 600 px de haut).' },
   { title: 'Fenêtre', art: [win], dims: `${WINDOW.w} × ${WINDOW.h} px`, real: `${toMeters(WINDOW.w)} × ${toMeters(WINDOW.h)} m`, about: 'Un cadre, une vitre noire, un liseré de neige dessus. Une sur cinq environ est éclairée : blanche, avec sa croisée.' },
   { title: 'Porte', art: [door], dims: `${DOOR.w} × ${DOOR.h} px`, real: `${toMeters(DOOR.w)} × ${toMeters(DOOR.h)} m`, about: 'Un rectangle noir au ras de la neige.' },
   { title: 'Module d\'immeuble', art: [house1.canvas], dims: `${CELL} × ${CELL} × ${FLOOR} px`, real: `${toMeters(CELL)} m de côté, un étage`, about: 'La brique du générateur : un étage sur une case. L\'atelier les empile (jusqu\'à 6) et le toit suit.' },
@@ -92,8 +92,8 @@ function lineup(z) {
   const w = 24 + items.reduce((s, c) => s + c.width + gap, 0);
   const h = Math.max(...items.map(c => c.height)) + base + 4;
   const c = canvasOf(w, h), g = c.getContext('2d');
-  g.fillStyle = PAL.nuit; g.fillRect(0, 0, w, h);
-  g.fillStyle = PAL.neige; g.fillRect(0, h - base, w, base);
+  g.fillStyle = PAL.neigeM; g.fillRect(0, 0, w, h);
+  g.fillStyle = PAL.neigeO; g.fillRect(0, h - base, w, base);
   // La toise : un trait par mètre (20 px), un petit tous les 20 cm
   for (let y = 0; y < h - base; y++) {
     const m = (h - base - y);

@@ -5,21 +5,23 @@
    Coordonnées monde en pixels du jeu (1 px = 5 cm, une case = 60 px). La
    vue est rendue en pixels du jeu dans un petit canvas, agrandi d'un
    facteur entier (pixels nets). */
-import { PAL } from './palette.js?v=1.0.2';
-import { CELL } from './scale.js?v=1.0.2';
-import { makeScene } from './scene.js?v=1.0.2';
-import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.2';
-import { hash } from './city.js?v=1.0.2';
+import { PAL } from './palette.js?v=1.1.0';
+import { CELL } from './scale.js?v=1.1.0';
+import { makeScene } from './scene.js?v=1.1.0';
+import { drawPierre, drawNote } from './sprites.js?v=1.1.0';
+import { createSwarm } from './swarm.js?v=1.1.0';
+import { hash } from './city.js?v=1.1.0';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
-const RAT_SPEED = 70;
-const PIERRE_R = 5, RAT_R = 2;
-const MAX_RATS = 600;                 // au-delà, l'armée est comptée mais pas toute simulée
+const PIERRE_R = 5;
+const MAX_RATS = 4000;                // au-delà, l'armée est comptée mais pas toute simulée
 const TRACE_LIFE = 150;               // s : la neige recouvre les traces
-const VIEW_H = 240;                   // hauteur visée de la vue, en pixels du jeu
+const TRACE_CAP = 60000;              // traces gardées au plus (tampon circulaire)
+const VIEW_H = 600;                   // hauteur visée de la vue, en pixels du jeu : Pierre y est petit
 
-export function createGame({ canvas, city, save = null, onRats = () => {}, onMessage = () => {} }) {
+export function createGame({ canvas, city, save = null, onRats = () => {}, onMessage = () => {}, testRats = 0 }) {
   const scene = makeScene(city);
+  const occlusion = scene.depthMap();
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   let vw = 320, vh = 240, factor = 3, zoomPref = 0;
 
@@ -28,9 +30,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
   const pierre = { x: start[0], y: start[1], dir: save?.dir || 1, moving: false, running: false, t: 0, stride: 0, foot: 0 };
   if (solid(pierre.x, pierre.y)) Object.assign(pierre, nearestStreet(pierre.x, pierre.y));
   let army = save?.rats || 0;            // le nombre de rats qui suivent Pierre
-  const rats = [];
   const notes = [], smoke = [], flakes = [];
-  const traces = [];
   let playing = false, playTime = save?.playSeconds || 0, callTimer = 1.2;
   let cam = { x: pierre.x - pierre.y, y: (pierre.x + pierre.y) / 2 };
   let time = 0, paused = true, attract = false, attractT = 0;
@@ -58,56 +58,29 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     if (!blocked(o.x, o.y + dy, r)) o.y += dy;
   }
 
-  // ─── Le chemin vers Pierre : une carte des distances, case par case ───
-  let flow = new Int16Array(city.w * city.h), flowCell = -1;
-  function updateFlow() {
-    const ci = Math.floor(pierre.x / CELL), cj = Math.floor(pierre.y / CELL);
-    const k = cj * city.w + ci;
-    if (k === flowCell) return;
-    flowCell = k;
-    flow.fill(-1);
-    const q = [k]; flow[k] = 0;
-    for (let h = 0; h < q.length; h++) {
-      const c = q[h], x = c % city.w, y = (c - x) / city.w;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = x + dx, ny = y + dy;
-        if (city.at(nx, ny) !== 0) continue;
-        const n = ny * city.w + nx;
-        if (flow[n] >= 0) continue;
-        flow[n] = flow[c] + 1;
-        q.push(n);
-      }
-    }
-  }
-  const distOf = (i, j) => (i < 0 || j < 0 || i >= city.w || j >= city.h ? -1 : flow[j * city.w + i]);
-
-  // ─── Les rats ───
-  function addRat(x, y, arrived = false) {
-    const k = rats.length;
-    // Une place à lui dans la nuée, derrière Pierre ; l'anneau s'élargit avec l'armée
-    const ring = Math.sqrt(k + 1) * 3.2 + 7;
-    rats.push({
-      x, y, dir: 1, t: Math.random() * 3, moving: false,
-      ang: hash(k, 3) * Math.PI * 2, ring: ring * (0.7 + hash(k, 4) * 0.5),
-      burst: 0, rest: Math.random(), stride: 0, foot: 0, arrived,
-    });
-  }
+  // ─── La nuée ───
+  const swarm = createSwarm({ city, capacity: MAX_RATS, onTrace: (wx, wy) => trace(wx, wy, 'neigeO') });
+  // Les bouches d'égout entre 2 et 9 cases de Pierre (à vol d'oiseau, en cases)
   function spawnFromSewer() {
-    updateFlow();
-    const far = city.grates.filter(([i, j]) => { const d = distOf(i, j); return d >= 2 && d <= 9; });
+    const pi = Math.floor(pierre.x / CELL), pj = Math.floor(pierre.y / CELL);
+    const near = city.grates.filter(([i, j]) => { const d = Math.abs(i - pi) + Math.abs(j - pj); return d >= 2 && d <= 9; });
     let x, y;
-    if (far.length) {
-      const [i, j] = far[Math.floor(Math.random() * far.length)];
+    if (near.length) {
+      const [i, j] = near[Math.floor(Math.random() * near.length)];
       x = (i + 0.5) * CELL; y = (j + 0.5) * CELL;
     } else {
       const a = Math.random() * Math.PI * 2;
       const p = nearestStreet(pierre.x + Math.cos(a) * 240, pierre.y + Math.sin(a) * 240);
       x = p.x; y = p.y;
     }
-    army++;
-    if (rats.length < MAX_RATS) addRat(x, y);
+    // ils sortent par petits groupes, de plus en plus gros avec l'armée
+    const burst = Math.min(14, 1 + Math.floor(army / 40) + (Math.random() < 0.3 ? 1 : 0));
+    for (let k = 0; k < burst; k++) {
+      army++;
+      swarm.add(x + (Math.random() - 0.5) * 6, y + (Math.random() - 0.5) * 6);
+      if ([1, 5, 10, 25, 50, 100, 200, 500, 1000, 2000].includes(army)) onMessage(milestone(army));
+    }
     onRats(army);
-    if ([1, 5, 10, 25, 50, 100, 200, 500, 1000].includes(army)) onMessage(milestone(army));
   }
   function milestone(n) {
     return {
@@ -120,85 +93,42 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
       200: 'Deux cents rats dans la neige.',
       500: 'Cinq cents. La nuit leur appartient.',
       1000: 'Mille rats. L\'Empereur en avait moins à Waterloo.',
+      2000: 'Deux mille. La neige est noire de rats.',
     }[n];
   }
-  // Au chargement : l'armée revient autour de Pierre
+  // Au chargement : l'armée revient autour de Pierre (et ?rats=N pour éprouver la nuée)
+  if (testRats > army) army = testRats;
   for (let k = 0; k < Math.min(army, MAX_RATS); k++) {
-    const a = Math.random() * Math.PI * 2, r = 10 + Math.random() * 30;
-    const p = { x: pierre.x + Math.cos(a) * r, y: pierre.y + Math.sin(a) * r };
-    if (blocked(p.x, p.y, RAT_R)) { p.x = pierre.x; p.y = pierre.y; }
-    addRat(p.x, p.y, true);
+    const a = Math.random() * Math.PI * 2, r = 6 + Math.sqrt(k) * 3 * Math.random();
+    let px = pierre.x + Math.cos(a) * r, py = pierre.y + Math.sin(a) * r;
+    if (blocked(px, py, 2)) { px = pierre.x; py = pierre.y; }
+    swarm.add(px, py);
   }
 
-  function updateRats(dt) {
-    updateFlow();
-    const pi = Math.floor(pierre.x / CELL), pj = Math.floor(pierre.y / CELL);
-    const back = Math.atan2(-pierre.vy || 0, -pierre.vx || -pierre.dir);
-    for (let idx = 0; idx < rats.length; idx++) {
-      const r = rats[idx];
-      r.t += dt;
-      let tx, ty;
-      const ci = Math.floor(r.x / CELL), cj = Math.floor(r.y / CELL);
-      const d = distOf(ci, cj);
-      const far = (r.x - pierre.x) ** 2 + (r.y - pierre.y) ** 2 > (CELL * 1.2) ** 2;
-      if (d > 0 && far) {
-        // Suivre la pente des distances vers la case de Pierre
-        let best = null, bd = d;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nd = distOf(ci + dx, cj + dy);
-          if (nd >= 0 && nd < bd) { bd = nd; best = [ci + dx, cj + dy]; }
-        }
-        if (best) { tx = (best[0] + 0.5) * CELL + (hash(idx, 5) - 0.5) * 30; ty = (best[1] + 0.5) * CELL + (hash(idx, 6) - 0.5) * 30; }
-        else { tx = pierre.x; ty = pierre.y; }
-      } else {
-        // Sa place dans la nuée, plutôt derrière Pierre ; quand il joue, ils se pressent autour
-        const spread = playing ? 0.75 : 1;
-        const a = back + (r.ang - Math.PI) * (playing ? 1 : 0.55);
-        tx = pierre.x + Math.cos(a) * r.ring * spread;
-        ty = pierre.y + Math.sin(a) * r.ring * spread;
-        if (pi !== ci || pj !== cj) { if (blocked(tx, ty, RAT_R)) { tx = pierre.x; ty = pierre.y; } }
-      }
-      const dx = tx - r.x, dy = ty - r.y, dist = Math.hypot(dx, dy);
-      // Les rats courent par à-coups : une course, un arrêt, on renifle
-      r.rest -= dt;
-      if (dist > 4 && r.rest <= 0) {
-        const sp = RAT_SPEED * (far ? 1.15 : 0.8 + hash(r.ang * 100, 7) * 0.5);
-        const step = Math.min(dist, sp * dt);
-        const ox = r.x, oy = r.y;
-        move(r, dx / dist * step, dy / dist * step, RAT_R);
-        const moved = Math.hypot(r.x - ox, r.y - oy);
-        r.moving = moved > 0.01;
-        if (Math.abs(r.x - ox - (r.y - oy)) > 0.05) r.dir = r.x - ox - (r.y - oy) > 0 ? 1 : -1;
-        r.burst += dt;
-        if (!far && r.burst > 0.4 + Math.random() * 0.6) { r.burst = 0; r.rest = 0.1 + Math.random() * 0.5; }
-        // Une trace d'un pixel tous les 5 px, en quinconce
-        r.stride += moved;
-        if (r.stride > 5) {
-          r.stride = 0; r.foot ^= 1;
-          const nx = -dy / dist, ny = dx / dist, s = r.foot ? 1 : -1;
-          trace(r.x + nx * s, r.y + ny * s, 'neigeO');
-        }
-      } else r.moving = false;
-    }
-  }
-
-  // ─── Les traces dans la neige ───
+  // ─── Les traces dans la neige (tampon circulaire : pas d'objet par trace) ───
+  const trX = new Int32Array(TRACE_CAP), trY = new Int32Array(TRACE_CAP), trT = new Float32Array(TRACE_CAP);
+  let trHead = 0, trLen = 0;
+  let viewL = 0, viewR = 0, viewT = 0, viewB = 0;
   function trace(wx, wy, key) {
+    // seulement ce qu'on voit (les traces hors champ ne coûtent rien)
+    const sx = wx - wy, sy = (wx + wy) / 2;
+    if (sx < viewL || sx > viewR || sy < viewT || sy > viewB) return;
     const at = scene.ground.colorAt(wx, wy);
     if (!at) return;
     const ink = at === 'neigeM' ? key : 'nuit2';
     const p = scene.ground.stamp(wx, wy, ink);
-    if (p) traces.push([p[0], p[1], time]);
+    if (!p) return;
+    if (trLen === TRACE_CAP) { scene.ground.restore(trX[trHead], trY[trHead]); trHead = (trHead + 1) % TRACE_CAP; trLen--; }
+    const k = (trHead + trLen) % TRACE_CAP;
+    trX[k] = p[0]; trY[k] = p[1]; trT[k] = time; trLen++;
   }
   function fadeTraces() {
     // La neige qui tombe recouvre d'abord les plus vieilles
     let n = 0;
-    while (traces.length && time - traces[0][2] > TRACE_LIFE * (0.6 + 0.4 * hash(traces[0][0], traces[0][1]))) {
-      const [gx, gy] = traces.shift();
-      scene.ground.restore(gx, gy);
-      if (++n > 200) break;
+    while (trLen && time - trT[trHead] > TRACE_LIFE * (0.6 + 0.4 * hash(trX[trHead], trY[trHead])) && n++ < 600) {
+      scene.ground.restore(trX[trHead], trY[trHead]);
+      trHead = (trHead + 1) % TRACE_CAP; trLen--;
     }
-    if (traces.length > 40000) { const [gx, gy] = traces.shift(); scene.ground.restore(gx, gy); }
   }
 
   // ─── Pierre ───
@@ -279,10 +209,11 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
         callTimer -= dt;
         if (callTimer <= 0) {
           spawnFromSewer();
-          callTimer = Math.max(0.3, 1.6 - Math.sqrt(army) * 0.08) * (0.6 + Math.random() * 0.8);
+          callTimer = Math.max(0.35, 1.6 - Math.sqrt(army) * 0.06) * (0.6 + Math.random() * 0.8);
         }
       }
-      updateRats(dt);
+      viewL = cam.x - 10; viewR = cam.x + vw + 10; viewT = cam.y - 10; viewB = cam.y + vh + 10;
+      swarm.update(dt, { x: pierre.x, y: pierre.y, vx: pierre.vx || 0, vy: pierre.vy || 0, playing }, time, 300);
       // La caméra suit Pierre, en douceur
       const tx = pierre.x - pierre.y - vw / 2, ty = (pierre.x + pierre.y) / 2 - vh / 2 - 12;
       const k = 1 - Math.exp(-dt * 5);
@@ -309,10 +240,13 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
   }
   // Pierre caché par un mur : on le redessine tramé par-dessus, là où on ne le voit pas
   const xc = document.createElement('canvas'); xc.width = 24; xc.height = 30;
-  const xg = xc.getContext('2d');
+  const xg = xc.getContext('2d', { willReadFrequently: true });
+  function renderPierreTo(g) {
+    g.clearRect(0, 0, 24, 30);
+    drawPierre(g, 12, 29, { pose: playing ? 'play' : pierre.moving ? 'walk' : 'stand', t: playing ? time : pierre.t, dir: pierre.dir, shadow: false, silhouette: true });
+  }
   function xray(sx, sy) {
-    xg.clearRect(0, 0, 24, 30);
-    drawPierre(xg, 12, 29, { pose: playing ? 'play' : pierre.moving ? 'walk' : 'stand', t: playing ? time : pierre.t, dir: pierre.dir, shadow: false });
+    renderPierreTo(xg);
     const x0 = sx - 12, y0 = sy - 29;
     if (x0 < 0 || y0 < 0 || x0 + 24 > vw || y0 + 30 > vh) return;
     const mine = xg.getImageData(0, 0, 24, 30).data, seen = ctx.getImageData(x0, y0, 24, 30).data;
@@ -331,10 +265,9 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     const cx = Math.round(cam.x), cy = Math.round(cam.y);
     const sprites = [];
     if (!attract) {
-      for (const r of rats) sprites.push({ wx: r.x, wy: r.y, draw: (g, x, y) => drawRat(g, x, y, r) });
       sprites.push({
         wx: pierre.x, wy: pierre.y,
-        draw: (g, x, y) => drawPierre(g, x, y, { pose: playing ? 'play' : pierre.moving ? 'walk' : 'stand', t: playing ? time : pierre.t, dir: pierre.dir }),
+        draw: (g, x, y) => drawPierre(g, x, y, { pose: playing ? 'play' : pierre.moving ? 'walk' : 'stand', t: playing ? time : pierre.t, dir: pierre.dir, silhouette: true }),
       });
     }
     // Une maison qui cache Pierre s'efface à moitié
@@ -346,6 +279,14 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
       return hidesPoint(psx - fx, psy - fy, city.at(i, j) * 60 + 34) ? 0.45 : 1;
     };
     scene.draw(ctx, cx, cy, vw, vh, sprites, { fade });
+    // Pierre caché par une maison : sa silhouette tramée (avant les rats, qui ne comptent pas)
+    if (!attract) xray(Math.round(pierre.x - pierre.y - cx), Math.round((pierre.x + pierre.y) / 2 - cy));
+    if (!attract) {
+      // La silhouette de Pierre, que les rats derrière lui ne recouvrent pas
+      const psx0 = Math.round(pierre.x - pierre.y - cx), psy0 = Math.round((pierre.x + pierre.y) / 2 - cy);
+      renderPierreTo(xg);
+      swarm.draw(ctx, cx, cy, vw, vh, time, occlusion, { data: xg.getImageData(0, 0, 24, 30).data, x: psx0 - 12, y: psy0 - 29, w: 24, h: 30, sy: (pierre.x + pierre.y) / 2 - cy });
+    }
     // Fumées
     for (const s of smoke) {
       const a = s.t / s.life;
@@ -360,7 +301,6 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     // La nuit : tout s'enfonce dans le noir hors de la lueur autour de Pierre
     const lx = attract ? vw / 2 : pierre.x - pierre.y - cx, ly = attract ? vh / 2 : (pierre.x + pierre.y) / 2 - cy - 12;
     ctx.drawImage(darkness, Math.round(lx - darkness.width / 2), Math.round(ly - darkness.height / 2));
-    if (!attract) xray(Math.round(pierre.x - pierre.y - cx), Math.round((pierre.x + pierre.y) / 2 - cy));
     // Notes
     for (const n of notes) {
       const fadeN = Math.max(0, (n.t - n.life * 0.55) / (n.life * 0.45));
@@ -375,7 +315,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
      plus dense en s'éloignant du centre, qu'on pose centré sur Pierre. Deux
      fois la taille de la vue, pour la couvrir quand la caméra a du retard. */
   const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  const NIGHT = { clear: 46, dark: 170, max: 0.88 };
+  const NIGHT = { clear: 0.13, dark: 0.42, max: 0.88 }; // en part de la hauteur de la vue
   let darkness = document.createElement('canvas');
   function buildDarkness() {
     const w = vw * 2, h = vh * 2;
@@ -386,7 +326,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       // une ellipse 2:1, comme le sol vu en isométrique
       const dist = Math.hypot((x - w / 2) / 1.6, (y - h / 2));
-      const t = Math.min(1, Math.max(0, (dist - NIGHT.clear) / (NIGHT.dark - NIGHT.clear))) * NIGHT.max;
+      const t = Math.min(1, Math.max(0, (dist - NIGHT.clear * vh) / ((NIGHT.dark - NIGHT.clear) * vh))) * NIGHT.max;
       if (t * 16 <= BAYER[(y % 4) * 4 + (x % 4)]) continue;
       const o = (y * w + x) * 4;
       d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
@@ -395,13 +335,19 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
   }
 
   let last = 0, raf = 0;
+  const perf = { update: 0, render: 0 };
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - (last || now)) / 1000);
     last = now;
     if (paused) return;
+    const t0 = performance.now();
     update(dt);
+    const t1 = performance.now();
     render();
+    // temps moyens (ms) de simulation et de rendu, lus par les essais de performance
+    perf.update += (t1 - t0 - perf.update) * 0.05;
+    perf.render += (performance.now() - t1 - perf.render) * 0.05;
   }
 
   // ─── Taille de la vue : un facteur entier, des pixels nets ───
@@ -410,8 +356,8 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     const host = canvas.parentElement;
     const cw = host.clientWidth, ch = host.clientHeight;
     const dw = cw * dpr, dh = ch * dpr;
-    // facteur automatique : environ VIEW_H pixels du jeu en hauteur, au moins 320 de large
-    const auto = Math.max(1, Math.floor(Math.min(dh / VIEW_H, dw / 320)));
+    // facteur automatique : environ VIEW_H pixels du jeu en hauteur, au moins 400 de large
+    const auto = Math.max(1, Math.floor(Math.min(dh / VIEW_H, dw / 400)));
     factor = Math.max(1, auto + zoomPref);
     vw = Math.ceil(dw / factor); vh = Math.ceil(dh / factor);
     canvas.width = vw; canvas.height = vh;
@@ -445,6 +391,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     note: emitNote,
     get playing() { return playing; },
     get army() { return army; },
+    get stats() { return { simulated: swarm.count, visible: swarm.visibleCount, traces: trLen, ms: { ...perf } }; },
     pause() { paused = true; },
     resume() { paused = false; last = 0; },
     get paused() { return paused; },

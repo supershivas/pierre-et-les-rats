@@ -1,8 +1,10 @@
 /* Les personnages, dessinés pixel par pixel, tournés vers la droite (on les
    retourne pour la gauche). Ancre : le milieu du bas, sous les pieds.
    Légende : n nuit, t nuit2, b brun, c brunC, p peau, r rouge, R rougeS,
-   o ocreS, O ocre, s neigeM, q rose. */
-import { PAL } from './palette.js?v=1.0.2';
+   o ocreS, O ocre, s neigeM, q rose.
+   Dans le jeu, Pierre n'est qu'une silhouette (option silhouette : tout en
+   noir) ; les couleurs servent à la planche d'échelle. */
+import { PAL } from './palette.js?v=1.1.0';
 
 const KEYS = { n: 'nuit', t: 'nuit2', b: 'brun', c: 'brunC', p: 'peau', r: 'rouge', R: 'rougeS', o: 'ocreS', O: 'ocre', s: 'neigeM', w: 'neige', q: 'rose', a: 'ardoise' };
 
@@ -44,20 +46,20 @@ const ARM_PLAY = [
   [11, 7, 'n'], [13, 7, 'n'],
 ];
 
-function blit(ctx, rows, x0, y0, flip, w) {
+function blit(ctx, rows, x0, y0, flip, w, ink) {
   for (let y = 0; y < rows.length; y++) {
     const row = rows[y];
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
       if (ch === '.') continue;
-      ctx.fillStyle = PAL[KEYS[ch]];
+      ctx.fillStyle = ink || PAL[KEYS[ch]];
       ctx.fillRect(flip ? x0 + w - 1 - x : x0 + x, y0 + y, 1, 1);
     }
   }
 }
-function dots(ctx, list, x0, y0, flip, w) {
+function dots(ctx, list, x0, y0, flip, w, ink) {
   for (const [x, y, ch] of list) {
-    ctx.fillStyle = PAL[KEYS[ch]];
+    ctx.fillStyle = ink || PAL[KEYS[ch]];
     ctx.fillRect(flip ? x0 + w - 1 - x : x0 + x, y0 + y, 1, 1);
   }
 }
@@ -73,7 +75,8 @@ export function drawShadow(ctx, x, y, w) {
 
 /* Pierre en (x, y) écran (sous les pieds). pose : 'stand' | 'walk' | 'play' ;
    t : le temps, pour l'animation ; dir : 1 droite, −1 gauche. */
-export function drawPierre(ctx, x, y, { pose = 'stand', t = 0, dir = 1, shadow = true } = {}) {
+export function drawPierre(ctx, x, y, { pose = 'stand', t = 0, dir = 1, shadow = true, silhouette = false } = {}) {
+  const ink = silhouette ? PAL.nuit : null;
   const flip = dir < 0, w = 13;
   const x0 = Math.round(x) - 6, y0 = Math.round(y) - 26;
   if (shadow) drawShadow(ctx, Math.round(x), Math.round(y) - 1, 5);
@@ -85,20 +88,9 @@ export function drawPierre(ctx, x, y, { pose = 'stand', t = 0, dir = 1, shadow =
   }
   // Quand il joue : il se balance un peu, la tête suit la mélodie
   if (pose === 'play') bob = Math.floor(t * 3) % 2 ? -1 : 0;
-  blit(ctx, PIERRE_TOP, x0, y0 + bob, flip, w);
-  blit(ctx, PIERRE_LEGS[legs], x0, y0 + 20, flip, w);
-  dots(ctx, pose === 'play' ? ARM_PLAY : ARM_DOWN, x0, y0 + bob, flip, w);
-}
-
-// Le rat : 10 × 4 px, queue comprise. Deux temps de course
-const RAT = [
-  ['.......q..', '....cccbb.', '..qbbbbbbn', 'qq..b..b..'],
-  ['......cq..', '...ccccbb.', '.qqbbbbbbn', 'q....bb...'],
-];
-const RAT_SIT = ['......cq..', '....cccbb.', '...bbbbbbn', 'qqq.b..b..'];
-export function drawRat(ctx, x, y, { dir = 1, moving = false, t = 0 } = {}) {
-  const rows = moving ? RAT[Math.floor(t * 14) % 2] : RAT_SIT;
-  blit(ctx, rows, Math.round(x) - 5, Math.round(y) - 4, dir < 0, 10);
+  blit(ctx, PIERRE_TOP, x0, y0 + bob, flip, w, ink);
+  blit(ctx, PIERRE_LEGS[legs], x0, y0 + 20, flip, w, ink);
+  dots(ctx, pose === 'play' ? ARM_PLAY : ARM_DOWN, x0, y0 + bob, flip, w, ink);
 }
 
 // Une note de musique : 4 × 6 px (croche), ou deux croches liées
