@@ -2,7 +2,7 @@
    retourne pour la gauche). Ancre : le milieu du bas, sous les pieds.
    Légende : n nuit, t nuit2, b brun, c brunC, p peau, r rouge, R rougeS,
    o ocreS, O ocre, s neigeM, q rose. */
-import { PAL } from './palette.js?v=1.0.0';
+import { PAL } from './palette.js?v=1.0.1';
 
 const KEYS = { n: 'nuit', t: 'nuit2', b: 'brun', c: 'brunC', p: 'peau', r: 'rouge', R: 'rougeS', o: 'ocreS', O: 'ocre', s: 'neigeM', w: 'neige', q: 'rose', a: 'ardoise' };
 

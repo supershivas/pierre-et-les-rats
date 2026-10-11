@@ -6,7 +6,7 @@
    Format publié (data/ville.json) :
      { "w": 22, "h": 22, "seed": 1815, "start": [x, y],
        "rows": ["0023340…", …] }   // un chiffre par colonne, 0 à 6 */
-import { MAX_FLOORS } from './scale.js?v=1.0.0';
+import { MAX_FLOORS } from './scale.js?v=1.0.1';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
@@ -57,9 +57,10 @@ function findGrates(city) {
   return out;
 }
 
-/* Un quartier de Paris en 1815, d'avant Haussmann : des rues étroites et un
-   peu tordues, des îlots denses de maisons de 2 à 5 étages par parcelles,
-   des cours, une petite place où commence Pierre. */
+/* Un quartier de Paris en 1815, d'avant Haussmann : des rues un peu
+   tordues, des îlots clairsemés de maisons basses (1 à 3 étages, rarement 4)
+   par parcelles, des cours et des terrains vagues, une place où commence
+   Pierre. */
 export function generateQuarter(seed = 1815, w = 22, h = 22) {
   const r = rng(seed);
   const g = Array.from({ length: h }, () => new Array(w).fill(1));
@@ -69,11 +70,11 @@ export function generateQuarter(seed = 1815, w = 22, h = 22) {
   const lanes = (len, cross) => {
     const out = [];
     let p = 2 + Math.floor(r() * 2);
-    while (p < cross - 2) { out.push(p); p += 4 + Math.floor(r() * 3); }
+    while (p < cross - 2) { out.push(p); p += 3 + Math.floor(r() * 3); }
     return out;
   };
   for (const y0 of lanes(w, h)) {
-    let y = y0; const wide = r() < 0.3;
+    let y = y0; const wide = r() < 0.5;
     for (let x = 1; x < w - 1; x++) {
       carve(x, y); if (wide) carve(x, y + 1);
       if (r() < 0.08) { const ny = Math.max(1, Math.min(h - 2, y + (r() < 0.5 ? -1 : 1))); carve(x, ny); y = ny; }
@@ -89,12 +90,12 @@ export function generateQuarter(seed = 1815, w = 22, h = 22) {
   }
   // La place
   const px = Math.floor(w / 2 - 2 + r() * 2), py = Math.floor(h / 2 - 2 + r() * 2);
-  for (let y = py; y < py + 4; y++) for (let x = px; x < px + 5; x++) carve(x, y);
+  for (let y = py - 1; y < py + 5; y++) for (let x = px - 1; x < px + 6; x++) carve(x, y);
   // Des cours au cœur des îlots épais
   for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
     let solid = true;
     for (let dy = -1; dy <= 1 && solid; dy++) for (let dx = -1; dx <= 1; dx++) if (!g[y + dy][x + dx]) { solid = false; break; }
-    if (solid && r() < 0.18) carve(x, y);
+    if (solid && r() < 0.35) carve(x, y);
   }
   // Les hauteurs, par parcelles de 1 à 3 cases le long de x
   for (let y = 0; y < h; y++) {
@@ -102,7 +103,9 @@ export function generateQuarter(seed = 1815, w = 22, h = 22) {
     while (x < w) {
       if (!g[y][x]) { x++; continue; }
       const len = 1 + Math.floor(r() * 3);
-      const floors = 2 + Math.floor(r() * r() * 4) + (r() < 0.15 ? 1 : 0);
+      // des terrains vagues entre les maisons, et des maisons basses
+      const empty = y > 0 && y < h - 1 && x > 0 && x < w - 1 && r() < 0.25;
+      const floors = empty ? 0 : 1 + Math.floor(r() * r() * 3) + (r() < 0.1 ? 1 : 0);
       for (let k = 0; k < len && x < w && g[y][x]; k++, x++) g[y][x] = Math.min(MAX_FLOORS, floors);
     }
   }

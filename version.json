@@ -1,9 +1,8 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "date": "2026-10-11",
   "changes": [
-    "Première version : Pierre marche dans le Paris enneigé de 1815, joue de la flûte et appelle les rats",
-    "Générateur de maisons et d'immeubles en 3D isométrique, et un atelier pour bâtir le quartier",
-    "Planche d'échelle des premiers éléments (1 pixel = 5 cm)"
+    "Le jeu passe à la nuit : bleu nuit, blanc et noir",
+    "Moins de maisons, plus basses, et beaucoup moins de détails sur les façades"
   ]
 }

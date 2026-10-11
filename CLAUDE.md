@@ -27,12 +27,15 @@ La vue montre environ 240 px du jeu en hauteur, agrandis d'un facteur entier.
 
 ### Palette du jeu (js/palette.js, variables --g-* de css/style.css)
 
-Hiver parisien 1815, restreinte, identique entre canvas, HUD et commandes :
-nuit `#1f2a44`, nuit2 `#34405e`, ardoise `#56627e`, neigeO `#9aabc4`,
-neigeM `#cdd8e6`, neige `#eef3f8`, pierreS `#6f665a`, pierre `#9d917c`,
-pierreL `#c9bda5`, brun `#4e3a2e`, brunC `#7a5c45`, rose `#c98d84`,
-peau `#e0b494`, rougeS `#7e2620`, rouge `#b5382c` (manteau de Pierre),
-ocreS `#b9782f`, ocre `#e6b35a` (fenêtres éclairées, notes).
+La nuit d'hiver 1815 : **bleu nuit, blanc et noir** seulement (demande de
+Jérôme, v1.0.1). Restreinte, identique entre canvas, HUD et commandes. Les
+clés gardent leurs noms d'origine (pierre, ocre…) pour ne pas toucher aux
+dessins : nuit `#05070c` (le noir), nuit2 `#0d1426`, ardoise `#16203a`,
+neigeO `#2a3658`, neigeM `#4f5f88` (neige des rues), neige `#dfe6f1`
+(neige des toits), pierreS `#0d1426`, pierre `#18223d`, pierreL `#25314f`
+(murs), brun `#05070c`, brunC `#25314f`, rose `#0d1426`, peau `#dfe6f1`,
+rougeS `#05070c`, rouge `#0d1426` (manteau de Pierre), ocreS `#dfe6f1`,
+ocre `#f4f7fb` (le blanc : fenêtres éclairées, notes).
 Aucune autre couleur dans le jeu. L'en-tête, les réglages, l'atelier et la
 planche gardent les tokens du design system.
 
@@ -56,10 +59,13 @@ planche gardent les tokens du design system.
   pour les guider dans les rues, traces, notes, fumées, neige, estompage
   des maisons qui cachent Pierre, silhouette tramée quand il est caché).
 - `js/city.js` : le modèle du quartier (une hauteur par case, 0 = rue), le
-  hasard déterministe `hash`, le générateur de quartier `generateQuarter`.
+  hasard déterministe `hash`, le générateur de quartier `generateQuarter`
+  (clairsemé : maisons basses, terrains vagues, environ 45 % de cases bâties).
 - `js/buildings.js` : **le générateur d'immeubles iso**. Chaque colonne est
   peinte pixel par pixel une fois ; faces, ouvertures, toit, pignons,
-  lucarnes, cheminées s'adaptent aux voisins (façon Townscaper).
+  cheminées s'adaptent aux voisins (façon Townscaper). **Peu de détails, à
+  dessein** (v1.0.1) : murs unis, une fenêtre sur deux, portes noires, pas
+  de volets, boutiques ni lucarnes.
 - `js/ground.js` : la neige des rues (une grande image), ombres portées,
   congères, bouches d'égout ; traces imprimées et effacées.
 - `js/scene.js` : tri arrière → avant des colonnes et des sprites, partagé

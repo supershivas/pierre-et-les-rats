@@ -36,15 +36,16 @@
   --modal-padding: 20px;
   --modal-gap: 16px;
 
-  /* La palette du jeu (js/palette.js), pour le canvas, le HUD et les commandes */
-  --g-nuit: #1f2a44;
-  --g-nuit2: #34405e;
-  --g-neigeO: #9aabc4;
-  --g-neigeM: #cdd8e6;
-  --g-neige: #eef3f8;
-  --g-ocre: #e6b35a;
-  --g-ocreS: #b9782f;
-  --g-rouge: #b5382c;
+  /* La palette du jeu (js/palette.js) : bleu nuit, blanc, noir — canvas, HUD et commandes */
+  --g-noir: #05070c;
+  --g-nuit: #0d1426;
+  --g-nuit2: #16203a;
+  --g-neigeO: #2a3658;
+  --g-neigeM: #4f5f88;
+  --g-neige: #dfe6f1;
+  --g-ocre: #f4f7fb;
+  --g-ocreS: #6a7aa2;
+  --g-rouge: #05070c;
   /* Le titre du jeu : un caractère d'imprimerie d'époque (propre au jeu) */
   --font-game: 'IM Fell English SC', 'IM Fell English', Georgia, serif;
   --font-game-text: 'IM Fell English', Georgia, serif;
@@ -105,7 +106,7 @@ body {
 .game { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: pointer; }
 .vignette {
   position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgba(16,22,38,.45) 100%);
+  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgba(0,0,0,.7) 100%);
 }
 
 /* HUD : la palette du jeu */
@@ -126,7 +127,7 @@ body {
   position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
   max-width: calc(100% - 120px); text-align: center;
   font-family: var(--font-game-text); font-size: 1rem; color: var(--g-neige);
-  background: rgba(31,42,68,.8); padding: 4px 12px; border-radius: 2px;
+  background: rgba(5,7,12,.8); padding: 4px 12px; border-radius: 2px;
   pointer-events: none; transition: opacity 1.2s ease;
 }
 .gone { opacity: 0; }
@@ -145,7 +146,7 @@ body {
   position: absolute; inset: 0; z-index: 5;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
   padding: 24px 16px; text-align: center;
-  background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(31,42,68,.35), rgba(31,42,68,.9) 80%);
+  background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(5,7,12,.35), rgba(5,7,12,.9) 80%);
   color: var(--g-neige);
 }
 .title-name {
@@ -158,7 +159,7 @@ body {
 .scrap {
   min-height: var(--tap); padding: 0 22px;
   font-family: var(--font-game-text); font-size: 1.2rem;
-  color: var(--g-neige); background: rgba(31,42,68,.75);
+  color: var(--g-neige); background: rgba(5,7,12,.75);
   border: 2px solid var(--g-neigeO); border-radius: 2px; cursor: pointer;
 }
 .scrap.primary { background: var(--g-neige); color: var(--g-nuit); border-color: var(--g-neige); }

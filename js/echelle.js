@@ -1,22 +1,22 @@
 /* La planche d'échelle : les premiers éléments du jeu, côte à côte puis un par
    un, dessinés par le même code que le jeu (sprites.js, buildings.js). */
-import { makeCity, hash } from './city.js?v=1.0.0';
-import { renderColumn } from './buildings.js?v=1.0.0';
-import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.0';
-import { PAL } from './palette.js?v=1.0.0';
-import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.0.0';
+import { makeCity, hash } from './city.js?v=1.0.1';
+import { renderColumn } from './buildings.js?v=1.0.1';
+import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.1';
+import { PAL } from './palette.js?v=1.0.1';
+import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.0.1';
 
 const $ = id => document.getElementById(id);
 const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
-// Une maison seule au milieu de la rue, avec une porte et des volets ouverts
+// Une maison seule au milieu de la rue, avec une porte et une fenêtre au premier
 function house(floors) {
   let seed = 1;
   for (; seed < 5000; seed++) {
-    const door = hash(1, 1, 0, 1, seed) < 0.42;
-    const shutters = hash(1, 1, 1, 3, seed);
-    const lit = hash(1, 1, 1, 5, seed) < 0.2;
-    if (door && shutters > 0.18 && shutters < 0.75 && !lit) break;
+    const door = hash(1, 1, 0, 1, seed) < 0.5;
+    const win = hash(1, 1, 1, 1, seed) < 0.55;
+    const lit = hash(1, 1, 1, 5, seed) < 0.22;
+    if (door && win && !lit) break;
   }
   const city = makeCity({ w: 3, h: 3, seed, start: [0, 0], rows: ['000', `0${floors}0`, '000'] });
   return renderColumn(city, 1, 1);
@@ -77,13 +77,13 @@ const pierreTraces = snow(30, 12, g => { g.fillStyle = PAL.neigeO; for (let k = 
 const CARDS = [
   { title: 'Trace de rat', art: [ratTraces], dims: '1 × 1 px', real: '5 cm', about: 'Un pixel, plus sombre que la neige, tous les 5 px de course, en quinconce. La neige qui tombe les recouvre en deux à trois minutes.' },
   { title: 'Traces de Pierre', art: [pierreTraces], dims: '2 × 1 px', real: '10 × 5 cm', about: 'Une empreinte de chaussure d\'enfant tous les 8 px, gauche, droite.' },
-  { title: 'Rat', art: [rat, ratSit], dims: `${RAT.w} × ${RAT.h} px`, real: `${toMeters(RAT.w)} m, queue comprise`, about: 'Deux temps de course et une pose arrêtée. Corps brun, ventre et dos clairs, queue et oreille roses.' },
+  { title: 'Rat', art: [rat, ratSit], dims: `${RAT.w} × ${RAT.h} px`, real: `${toMeters(RAT.w)} m, queue comprise`, about: 'Deux temps de course et une pose arrêtée. Une petite ombre noire, le dos à peine plus clair.' },
   { title: 'Note de musique', art: [note], dims: `${NOTE.w} × ${NOTE.h} px`, real: '—', about: 'Sort de la flûte à chaque note jouée, monte en ondulant et se trame en s\'effaçant.' },
-  { title: 'Pierre', art: [pierreStand, pierreWalk, pierrePlay], dims: `${PIERRE.w} × ${PIERRE.h} px`, real: `${toMeters(PIERRE.h)} m`, about: 'Un enfant de dix ans : bonnet, manteau rouge, écharpe. Debout, en marche, et jouant de la flûte (qui dépasse de 4 px).' },
-  { title: 'Fenêtre', art: [win], dims: `${WINDOW.w} × ${WINDOW.h} px`, real: `${toMeters(WINDOW.w)} × ${toMeters(WINDOW.h)} m`, about: 'Six carreaux, volets à persiennes, appui et linteau, un liseré de neige sur chacun.' },
-  { title: 'Porte', art: [door], dims: `${DOOR.w} × ${DOOR.h} px`, real: `${toMeters(DOOR.w)} × ${toMeters(DOOR.h)} m`, about: 'Porte cintrée à panneaux, heurtoir, sur une marche enneigée.' },
+  { title: 'Pierre', art: [pierreStand, pierreWalk, pierrePlay], dims: `${PIERRE.w} × ${PIERRE.h} px`, real: `${toMeters(PIERRE.h)} m`, about: 'Un enfant de dix ans, en noir, le visage blanc dans la nuit. Debout, en marche, et jouant de la flûte (qui dépasse de 4 px).' },
+  { title: 'Fenêtre', art: [win], dims: `${WINDOW.w} × ${WINDOW.h} px`, real: `${toMeters(WINDOW.w)} × ${toMeters(WINDOW.h)} m`, about: 'Un cadre, une vitre noire, un liseré de neige dessus. Une sur cinq environ est éclairée : blanche, avec sa croisée.' },
+  { title: 'Porte', art: [door], dims: `${DOOR.w} × ${DOOR.h} px`, real: `${toMeters(DOOR.w)} × ${toMeters(DOOR.h)} m`, about: 'Un rectangle noir au ras de la neige.' },
   { title: 'Module d\'immeuble', art: [house1.canvas], dims: `${CELL} × ${CELL} × ${FLOOR} px`, real: `${toMeters(CELL)} m de côté, un étage`, about: 'La brique du générateur : un étage sur une case. L\'atelier les empile (jusqu\'à 6) et le toit suit.' },
-  { title: 'Maison de quatre étages', art: [house4.canvas], dims: `${CELL * 2 + 1} × ${house4.h} px à l'écran`, real: `${toMeters(4 * FLOOR + ROOF)} m au faîtage`, about: 'Rez-de-chaussée et trois étages, comble à la Mansart (brisis d\'ardoise, terrasson sous la neige), lucarne et cheminée.' },
+  { title: 'Maison de quatre étages', art: [house4.canvas], dims: `${CELL * 2 + 1} × ${house4.h} px à l'écran`, real: `${toMeters(4 * FLOOR + ROOF)} m au faîtage`, about: 'Rez-de-chaussée et trois étages, comble à la Mansart : le brisis d\'ardoise, le dessus sous la neige.' },
 ];
 
 function lineup(z) {

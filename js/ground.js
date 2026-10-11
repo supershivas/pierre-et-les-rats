@@ -2,9 +2,9 @@
    grande image (une case = un losange de 120 × 60 px). Les traces de pas s'y
    impriment pixel par pixel ; la neige qui tombe les recouvre peu à peu
    (on repeint la couleur d'origine, que `colorAt` sait retrouver). */
-import { RGB, PAL } from './palette.js?v=1.0.0';
-import { CELL, FLOOR } from './scale.js?v=1.0.0';
-import { hash } from './city.js?v=1.0.0';
+import { RGB, PAL } from './palette.js?v=1.0.1';
+import { CELL, FLOOR } from './scale.js?v=1.0.1';
+import { hash } from './city.js?v=1.0.1';
 
 export function makeGround(city) {
   const W = (city.w + city.h) * CELL, H = (city.w + city.h) * CELL / 2 + 2;
@@ -32,18 +32,16 @@ export function makeGround(city) {
       if (h2 > 0) {
         const dist = (cy + k) * CELL - wy;
         const len = h2 * FLOOR * 0.32;
-        if (dist < len) return dist < len * 0.45 && n < 0.5 ? 'neigeO' : (n < 0.12 ? 'neigeO' : 'neigeM');
+        if (dist < len) return 'neigeO';
         break;
       }
       if (h2 !== 0) break;
     }
     // Congère au pied des murs éclairés
     const back = city.at(cx, cy - 1) > 0 && b < 5 + 3 * hash(Math.floor(wx / 6), cy, 5);
-    if (back) return n < 0.15 ? 'neigeM' : 'neige';
+    if (back) return 'neigeM';
     // Pavés qui affleurent là où la neige est tassée, au milieu des rues
-    if (n < 0.006) return 'pierre';
-    if (n < 0.05) return 'neigeM';
-    return 'neige';
+    return 'neigeM';
   }
 
   // Coordonnées image → monde

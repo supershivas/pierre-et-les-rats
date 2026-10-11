@@ -5,11 +5,11 @@
    Coordonnées monde en pixels du jeu (1 px = 5 cm, une case = 60 px). La
    vue est rendue en pixels du jeu dans un petit canvas, agrandi d'un
    facteur entier (pixels nets). */
-import { PAL } from './palette.js?v=1.0.0';
-import { CELL } from './scale.js?v=1.0.0';
-import { makeScene } from './scene.js?v=1.0.0';
-import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.0';
-import { hash } from './city.js?v=1.0.0';
+import { PAL } from './palette.js?v=1.0.1';
+import { CELL } from './scale.js?v=1.0.1';
+import { makeScene } from './scene.js?v=1.0.1';
+import { drawPierre, drawRat, drawNote } from './sprites.js?v=1.0.1';
+import { hash } from './city.js?v=1.0.1';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const RAT_SPEED = 70;
@@ -176,7 +176,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
         if (r.stride > 5) {
           r.stride = 0; r.foot ^= 1;
           const nx = -dy / dist, ny = dx / dist, s = r.foot ? 1 : -1;
-          trace(r.x + nx * s, r.y + ny * s, 'neigeM');
+          trace(r.x + nx * s, r.y + ny * s, 'neigeO');
         }
       } else r.moving = false;
     }
@@ -186,7 +186,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
   function trace(wx, wy, key) {
     const at = scene.ground.colorAt(wx, wy);
     if (!at) return;
-    const ink = at === 'neige' ? key : 'neigeO';
+    const ink = at === 'neigeM' ? key : 'nuit2';
     const p = scene.ground.stamp(wx, wy, ink);
     if (p) traces.push([p[0], p[1], time]);
   }
@@ -232,8 +232,8 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
       if (pierre.stride > 8) {
         pierre.stride = 0; pierre.foot ^= 1;
         const nx = -vy, ny = vx, s = pierre.foot ? 2 : -2;
-        trace(pierre.x + nx * s, pierre.y + ny * s, 'neigeO');
-        trace(pierre.x + nx * s + vx, pierre.y + ny * s + vy, 'neigeO');
+        trace(pierre.x + nx * s, pierre.y + ny * s, 'nuit2');
+        trace(pierre.x + nx * s + vx, pierre.y + ny * s + vy, 'nuit2');
       }
     } else if (input.target && !input.hold) input.target = null;
   }
