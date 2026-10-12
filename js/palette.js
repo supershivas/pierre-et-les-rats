@@ -26,3 +26,10 @@ export const PAL = {
 
 // Couleur en [r, g, b] (pour écrire dans un ImageData)
 export const RGB = Object.fromEntries(Object.entries(PAL).map(([k, h]) => [k, [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))]));
+
+// Les 9 couleurs distinctes du jeu (plusieurs clés partagent la même) : le
+// moteur 3D stocke des indices dans ses textures (un octet par pixel) et la
+// palette dans une petite texture, pour que les couleurs restent exactes.
+export const PALETTE = [...new Set(Object.values(PAL))];
+export const PAL_INDEX = Object.fromEntries(Object.entries(PAL).map(([k, h]) => [k, PALETTE.indexOf(h)]));
+export const PALETTE_RGB = PALETTE.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));

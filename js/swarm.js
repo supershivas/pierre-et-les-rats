@@ -19,8 +19,8 @@
      Les pixels des rats sont écrits directement dans un tampon (Uint32), puis
      envoyés d'un coup par diagonale (le rectangle qu'ils occupent) : aucun
      appel de dessin par rat. */
-import { CELL } from './scale.js?v=1.4.1';
-import { PIX } from './rat-sprites.js?v=1.4.1';
+import { CELL } from './scale.js?v=2.0.0';
+import { PIX } from './rat-sprites.js?v=2.0.0';
 
 const GRID = 8;               // px : taille des cases de voisinage
 const SEP_R = 5;              // px : distance de séparation
@@ -68,6 +68,7 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
   const dist = new Int16Array(cells), flowX = new Float32Array(cells), flowY = new Float32Array(cells);
   let flowFrom = -1;
   const open = (i, j) => city.walk(i, j);
+  let nearCells = [];                      // les cases de rue à 2–6 pas de Pierre : où recoller un rat perdu
   function updateFlow(px, py) {
     const pi = (px / CELL) | 0, pj = (py / CELL) | 0, k = pj * city.w + pi;
     if (k === flowFrom) return;
@@ -83,6 +84,7 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
         dist[m] = dist[c] + 1; q.push(m);
       }
     }
+    nearCells = q.filter(c => dist[c] >= 2 && dist[c] <= 6);
     // Le vecteur de chaque case : vers les voisines plus proches de Pierre
     // (les diagonales seulement si les deux côtés sont ouverts, pour ne pas couper les coins)
     for (let c = 0; c < cells; c++) {
@@ -108,6 +110,17 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
   const solid = (wx, wy) => !city.walk(Math.floor(wx / CELL), Math.floor(wy / CELL));
   const blocked = (px, py) => solid(px - RAT_R, py - RAT_R) || solid(px + RAT_R, py - RAT_R) || solid(px - RAT_R, py + RAT_R) || solid(px + RAT_R, py + RAT_R);
 
+  const lost = new Float32Array(capacity);       // depuis combien de temps le rat est hors de portée de Pierre
+  // Recolle un rat sur une case de rue proche de Pierre, quand il est perdu (une cour
+  // fermée, un mur) : une armée ne perd jamais un rat en route
+  function rescue(i, p) {
+    if (!nearCells.length) return;
+    const c = nearCells[(Math.random() * nearCells.length) | 0], cx = c % city.w, cy = (c - cx) / city.w;
+    x[i] = (cx + 0.2 + Math.random() * 0.6) * CELL; y[i] = (cy + 0.2 + Math.random() * 0.6) * CELL;
+    vx[i] = 0; vy[i] = 0; z[i] = 0; vz[i] = 0; st[i] = ST.RUN; lost[i] = 0;
+    void p;
+  }
+
   function add(px, py) {
     if (n >= capacity) return false;
     const i = n++;
@@ -117,7 +130,7 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
     ph[i] = Math.random() * 10; wa[i] = Math.random() * Math.PI * 2;
     // une place dans le disque autour de Pierre : les derniers venus au bord
     ring[i] = 9 + Math.sqrt(i * 9 / Math.PI) * (0.85 + Math.random() * 0.3);
-    st[i] = ST.RUN; tm[i] = 0; face[i] = Math.random() < 0.5 ? 1 : -1;
+    st[i] = ST.RUN; tm[i] = 0; face[i] = Math.random() < 0.5 ? 1 : -1; lost[i] = 0;
     orbit[i] = Math.random() < 0.5 ? 1 : -1;
     stride[i] = Math.random() * 5;
     return true;
@@ -168,6 +181,11 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
       const fd = ci >= 0 && cj >= 0 && ci < city.w && cj < city.h ? dist[cc] : -1;
       let gx, gy;
       const far = dp > disc + 30 || fd < 0 || fd > Math.ceil((disc + 30) / CELL) + 1;
+      // hors de portée (pas de chemin jusqu'à Pierre) ou pris dans un mur : au bout de 1,5 s, on le recolle
+      if (fd < 0 || blocked(xi, yi)) {
+        lost[i] += dt;
+        if (lost[i] > 1.5) { rescue(i, p); continue; }
+      } else lost[i] = 0;
       if (far && fd > 0) { gx = flowX[cc]; gy = flowY[cc]; }
       else if (far) { gx = dxp / dp; gy = dyp / dp; }
       if (far) {

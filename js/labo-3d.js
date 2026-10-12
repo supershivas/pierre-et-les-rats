@@ -13,15 +13,15 @@
    Trois caméras : isométrique (orthographique, 30° d'élévation), à hauteur
    d'enfant (en perspective, derrière Pierre), libre (on la fait tourner).
    three.js est chargé à la demande depuis le CDN, version figée. */
-import { makeCity } from './city.js?v=1.4.1';
-import { loadPublished } from './city-store.js?v=1.4.1';
-import { renderColumn } from './buildings.js?v=1.4.1';
-import { makeGround } from './ground.js?v=1.4.1';
-import { createSwarm, ST } from './swarm.js?v=1.4.1';
-import { propSprite, PROP_TYPES } from './props.js?v=1.4.1';
-import { drawPierre } from './sprites.js?v=1.4.1';
-import { PAL } from './palette.js?v=1.4.1';
-import { CELL, FLOOR } from './scale.js?v=1.4.1';
+import { makeCity } from './city.js?v=2.0.0';
+import { loadPublished } from './city-store.js?v=2.0.0';
+import { renderColumn } from './buildings.js?v=2.0.0';
+import { makeGround } from './ground.js?v=2.0.0';
+import { createSwarm, ST } from './swarm.js?v=2.0.0';
+import { propSprite, PROP_TYPES } from './props.js?v=2.0.0';
+import { drawPierre } from './sprites.js?v=2.0.0';
+import { PAL } from './palette.js?v=2.0.0';
+import { CELL, FLOOR } from './scale.js?v=2.0.0';
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
 const VIEW_H = 250;           // hauteur visée de la vue, en pixels du jeu (comme le jeu 2D)
@@ -392,7 +392,7 @@ export async function mount3D(host, { mode = 'iso', rats = 300, onStats = () => 
 
 /* La variante A : le moteur 2D d'aujourd'hui, en direct, avec la même nuée */
 export async function mount2D(host, { rats = 300 } = {}) {
-  const { createGame } = await import('./game.js?v=1.4.1');
+  const { createGame } = await import('./game.js?v=2.0.0');
   const city = makeCity(await loadPublished());
   const canvas = document.createElement('canvas');
   canvas.className = 'game';

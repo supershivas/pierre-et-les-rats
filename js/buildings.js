@@ -27,13 +27,17 @@
    premiers étages ; au-dessus, la façade s'enfonce dans le noir (trame de
    Bayer selon la hauteur), sauf les fenêtres éclairées.
 
+   Options : night (la nuit des étages) ; all (peindre aussi les faces cachées par
+   un voisin : le moteur 3D, où un voisin peut être coupé) ; roof (false : sans
+   toit) ; raw (rendre { data, w, h } sans canvas).
+
    Projection (pixels du jeu, 1 px = 5 cm) : x écran = a − b, y écran =
    (a + b) / 2 − z. Dans l'image d'une colonne, le coin avant au sol est en
    (CELL, H − 1). Face A : le mur du côté +y (à gauche à l'écran, éclairé) ;
    face B : le mur du côté +x (à droite, à l'ombre). */
-import { RGB } from './palette.js?v=1.4.1';
-import { CELL, FLOOR, ROOF } from './scale.js?v=1.4.1';
-import { hash } from './city.js?v=1.4.1';
+import { RGB } from './palette.js?v=2.0.0';
+import { CELL, FLOOR, ROOF } from './scale.js?v=2.0.0';
+import { hash } from './city.js?v=2.0.0';
 
 const CHIMNEY_H = 16;
 export const COLUMN_W = CELL * 2 + 1;
@@ -63,7 +67,7 @@ function canvasFor(w, h) {
 
 /* Peint la colonne (i, j). Rend { canvas, w, h, chimneys: [[lx, ly]], lit } :
    l'image, et les sommets de cheminée (pour la fumée), en pixels de l'image. */
-export function renderColumn(city, i, j, { night = false } = {}) {
+export function renderColumn(city, i, j, { night = false, all = false, roof = true, raw = false } = {}) {
   const n = city.at(i, j);
   const kind = city.kind(i, j);
   const style = kind === 'N' ? (n >= 7 ? 'tower' : 'nave') : n <= 3 ? 'old' : 'haussmann';
@@ -91,8 +95,8 @@ export function renderColumn(city, i, j, { night = false } = {}) {
   const hVariant = hash(i, j, 77, seed);                 // une famille de fenêtres par immeuble
   const lit = [];
   for (let k = 0; k < n; k++) {
-    if (city.at(i, j + 1) <= k) paintFloor('A', k);
-    if (city.at(i + 1, j) <= k) paintFloor('B', k);
+    if (all || city.at(i, j + 1) <= k) paintFloor('A', k);
+    if (all || city.at(i + 1, j) <= k) paintFloor('B', k);
   }
 
   function paintFloor(face, k) {
@@ -250,7 +254,7 @@ export function renderColumn(city, i, j, { night = false } = {}) {
 
   // ─── Le toit ───
   const chimneys = [];
-  if (n > 0) {
+  if (n > 0 && roof) {
     const same = (x, y) => city.at(x, y) === n && city.kind(x, y) === kind;
     const alongX = (same(i - 1, j) + same(i + 1, j)) >= (same(i, j - 1) + same(i, j + 1));
     const zb = n * FLOOR;
@@ -325,6 +329,7 @@ export function renderColumn(city, i, j, { night = false } = {}) {
     }
   }
 
+  if (raw) return { data, w: W, h: H, chimneys, lit };
   const canvas = canvasFor(W, H);
   canvas.getContext('2d').putImageData(img, 0, 0);
   return { canvas, w: W, h: H, chimneys, lit };

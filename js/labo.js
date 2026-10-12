@@ -4,10 +4,10 @@
    ce qu'elle changerait. Rien n'est lu ni écrit dans le navigateur.
 
    Ajouter une idée = ajouter une entrée dans TOPICS (et sa vignette). */
-import { PAL } from './palette.js?v=1.4.1';
-import { drawPierre, drawNote } from './sprites.js?v=1.4.1';
-import { ATLAS, POSE_ROWS } from './rat-sprites.js?v=1.4.1';
-import { hash } from './city.js?v=1.4.1';
+import { PAL } from './palette.js?v=2.0.0';
+import { drawPierre, drawNote } from './sprites.js?v=2.0.0';
+import { ATLAS, POSE_ROWS } from './rat-sprites.js?v=2.0.0';
+import { hash } from './city.js?v=2.0.0';
 
 const W = 320, H = 180;
 
@@ -472,7 +472,7 @@ function renderView() {
   artFn = v.live ? null : ART[v.art];
   if (v.live) {
     const token = liveToken;
-    import('./labo-3d.js?v=1.4.1').then(async m => {
+    import('./labo-3d.js?v=2.0.0').then(async m => {
       const host = $('live');
       const onStats = st => { const el = $('live-stats'); if (el) el.textContent = `${st.fps} images/s · ${st.rats} rats · simulation ${st.sim.toFixed(1)} ms · rendu ${st.draw.toFixed(1)} ms`; };
       const mounted = v.live === '2d' ? await m.mount2D(host, { rats: 300 }) : await m.mount3D(host, { mode: v.live, rats: 300, onStats });

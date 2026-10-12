@@ -19,11 +19,11 @@ function stamp(file, patterns) {
   if (s !== before) { writeFileSync(path, s); changed++; }
 }
 // Les modules : `from './x.js'`, `import('./x.js')`
-// app-update.js vient du design system : on n'y touche pas
+// app-update.js vient du design system : on n'y touche pas ; vendor/ (three.js) garde sa propre version
 for (const f of readdirSync(join(root, 'js')).filter(f => f.endsWith('.js') && f !== 'app-update.js')) {
   stamp(`js/${f}`, [
-    /(from\s+')(\.{1,2}\/[^'?]+\.js)(?:\?v=[^']*)?(')/g,
-    /(import\(\s*')(\.{1,2}\/[^'?]+\.js)(?:\?v=[^']*)?(')/g,
+    /(from\s+')(\.{1,2}\/(?!vendor\/)[^'?]+\.js)(?:\?v=[^']*)?(')/g,
+    /(import\(\s*')(\.{1,2}\/(?!vendor\/)[^'?]+\.js)(?:\?v=[^']*)?(')/g,
   ]);
 }
 // Les pages : scripts de modules et feuilles de style locales

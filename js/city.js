@@ -7,13 +7,23 @@
      { "w": 26, "h": 22, "seed": 1871, "start": [x, y],
        "rows": ["0023340…", …],   // un chiffre par colonne, 0 à 7
        "props": [["lamp", 315, 642, 0], …] }   // le mobilier : type, x, y (monde), variante */
-import { MAX_FLOORS } from './scale.js?v=1.4.1';
-import { generateProps } from './props.js?v=1.4.1';
+import { MAX_FLOORS } from './scale.js?v=2.0.0';
+import { generateProps } from './props.js?v=2.0.0';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
   let h = 2166136261 >>> 0;
   for (const v of n) { h ^= (v | 0) + 0x9e3779b9 + (h << 6) + (h >>> 2); h = Math.imul(h, 16777619) >>> 0; }
+  h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
+  return (h >>> 0) / 4294967296;
+}
+
+// La même chose que hash(a, b, c), sans tableau : pour le sol, appelée à chaque pixel
+export function hash3(a, b, c) {
+  let h = 2166136261 >>> 0;
+  h ^= (a | 0) + 0x9e3779b9 + (h << 6) + (h >>> 2); h = Math.imul(h, 16777619) >>> 0;
+  h ^= (b | 0) + 0x9e3779b9 + (h << 6) + (h >>> 2); h = Math.imul(h, 16777619) >>> 0;
+  h ^= (c | 0) + 0x9e3779b9 + (h << 6) + (h >>> 2); h = Math.imul(h, 16777619) >>> 0;
   h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
   return (h >>> 0) / 4294967296;
 }
@@ -26,8 +36,10 @@ export function rng(seed) {
 /* Le terrain de chaque case (rangées « ground », un caractère par case) :
      .  rue ou maison ordinaire          ~  la Seine (l'eau, les glaçons)
      =  un pont (on y marche)            P  un passage sous un immeuble
-     N  Notre-Dame (nef, ou tour si 7 niveaux et plus) */
-export const GROUND = { street: '.', water: '~', bridge: '=', passage: 'P', cathedral: 'N' };
+     B  une avenue ou un quai plantés (arbres, réverbères, bancs)
+     N  Notre-Dame : l'ensemble des cases N est un seul bloc (le jeu 3D le
+        remplace par la cathédrale, `city.cathedral`) ; en 2D, des étages */
+export const GROUND = { street: '.', boulevard: 'B', water: '~', bridge: '=', passage: 'P', cathedral: 'N' };
 
 export function makeCity(data) {
   const w = data.w, h = data.h;
@@ -50,12 +62,58 @@ export function makeCity(data) {
       const k = ground[y * w + x];
       return k === 'P' || (heights[y * w + x] === 0 && k !== '~' && k !== 'N');
     },
-    // une rue ordinaire (pour les bouches d'égout, le mobilier)
-    isStreet(x, y) { return inside(x, y) && heights[y * w + x] === 0 && ground[y * w + x] === '.'; },
+    // une rue ou une avenue (pour les bouches d'égout, le mobilier)
+    isStreet(x, y) { return inside(x, y) && heights[y * w + x] === 0 && (ground[y * w + x] === '.' || ground[y * w + x] === 'B'); },
     isWater(x, y) { return inside(x, y) && ground[y * w + x] === '~'; },
   };
+  city.reach = findReach(city);
+  city.cathedral = findCathedral(city);
   city.grates = findGrates(city);
   return city;
+}
+
+// Les cases où l'on peut aller depuis le départ (les cours fermées n'en sont pas :
+// ni bouche d'égout ni mobilier, et aucun rat n'y reste coincé)
+function findReach(city) {
+  const reach = new Uint8Array(city.w * city.h);
+  let [sx, sy] = city.start;
+  if (!city.walk(sx, sy)) {
+    let best = Infinity;
+    for (let y = 0; y < city.h; y++) for (let x = 0; x < city.w; x++) {
+      const d = Math.abs(x - sx) + Math.abs(y - sy);
+      if (city.walk(x, y) && d < best) { best = d; sx = x; sy = y; }
+    }
+  }
+  if (!city.walk(sx, sy)) return reach;
+  const q = [sy * city.w + sx]; reach[q[0]] = 1;
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], x = c % city.w, y = (c - x) / city.w;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (!city.walk(x + dx, y + dy)) continue;
+      const m = (y + dy) * city.w + x + dx;
+      if (!reach[m]) { reach[m] = 1; q.push(m); }
+    }
+  }
+  return reach;
+}
+
+/* Notre-Dame : les cases N forment un seul bloc. Son rectangle englobant, et
+   la façade (les tours) du côté où les cases sont les plus hautes ; à défaut,
+   à l'ouest (ou au nord si le bloc est vertical), comme la vraie. facing :
+   'W' (façade vers −x), 'E', 'N' (vers −y), 'S'. */
+function findCathedral(city) {
+  let i0 = 1e9, j0 = 1e9, i1 = -1, j1 = -1;
+  for (let y = 0; y < city.h; y++) for (let x = 0; x < city.w; x++) {
+    if (city.ground[y * city.w + x] !== 'N') continue;
+    i0 = Math.min(i0, x); i1 = Math.max(i1, x); j0 = Math.min(j0, y); j1 = Math.max(j1, y);
+  }
+  if (i1 < 0) return null;
+  const w = i1 - i0 + 1, d = j1 - j0 + 1, alongX = w >= d;
+  const tallest = (a, b, c, e) => { let m = 0; for (let y = c; y <= e; y++) for (let x = a; x <= b; x++) m = Math.max(m, city.heights[y * city.w + x]); return m; };
+  const lo = alongX ? tallest(i0, i0, j0, j1) : tallest(i0, i1, j0, j0);
+  const hi = alongX ? tallest(i1, i1, j0, j1) : tallest(i0, i1, j1, j1);
+  const facing = alongX ? (hi > lo ? 'E' : 'W') : (hi > lo ? 'S' : 'N');
+  return { i0, j0, w, d, facing };
 }
 
 export function cityToData(city) {
@@ -72,127 +130,167 @@ export function cityToData(city) {
 function findGrates(city) {
   const out = [];
   for (let y = 0; y < city.h; y++) for (let x = 0; x < city.w; x++) {
-    if (!city.isStreet(x, y) || hash(x, y, city.seed, 7) > 0.16) continue;
+    if (!city.isStreet(x, y) || !city.reach[y * city.w + x] || hash(x, y, city.seed, 7) > 0.12) continue;
     if (out.some(([gx, gy]) => Math.abs(gx - x) + Math.abs(gy - y) < 4)) continue;
     out.push([x, y]);
   }
   return out;
 }
 
-/* Paris en 1871, au bord de la Seine : le fleuve traverse le quartier
-   d'ouest en est et se partage autour de l'île de la Cité, où se dresse
-   Notre-Dame devant son parvis. Des quais le long de l'eau, des ponts, des
-   rues un peu tordues ; au nord et au sud, des îlots d'immeubles
-   haussmanniens (5 à 7 niveaux, la même corniche le long d'un îlot) ; sur
-   l'île et dans le vieux quartier, d'anciennes maisons basses. Quelques
-   passages sous les immeubles. Puis le mobilier urbain (props.js). */
-export function generateQuarter(seed = 1871, w = 26, h = 22) {
+
+/* Paris en 1871, au bord de la Seine : le fleuve traverse tout le quartier
+   d'ouest en est et se partage autour de l'île de la Cité, où Notre-Dame
+   (un seul bloc, `N`) se dresse devant son parvis. Des quais plantés de
+   chaque côté, cinq ponts.
+   Deux grands boulevards est-ouest et deux nord-sud, droits, de 4 cases
+   (arbres, réverbères, bancs), bordés d'immeubles haussmanniens de 5 à 7
+   niveaux. Entre eux, des îlots : haussmanniens autour d'une ruelle
+   centrale (avec des passages couverts), ou « vieux quartier » de ruelles
+   d'une case entre des maisons basses (1 à 4 niveaux). Un îlot devient
+   square. Puis le mobilier urbain (props.js). */
+export function generateQuarter(seed = 1871, w = 44, h = 40) {
+  w = Math.max(36, w); h = Math.max(34, h);
   const r = rng(seed);
-  const g = Array.from({ length: h }, () => new Array(w).fill(1));
+  // g : niveaux (−1 : bâti à décider) ; k : terrain
+  const g = Array.from({ length: h }, () => new Array(w).fill(-1));
   const k = Array.from({ length: h }, () => new Array(w).fill('.'));
-  const inside = (x, y) => x > 0 && y > 0 && x < w - 1 && y < h - 1;
-  const carve = (x, y) => { if (inside(x, y) && k[y][x] === '.') g[y][x] = 0; };
-  const water = (x, y) => { if (x >= 0 && y >= 0 && x < w && y < h) { g[y][x] = 0; k[y][x] = '~'; } };
+  const inb = (x, y) => x >= 0 && y >= 0 && x < w && y < h;
+  const put = (x, y, kind, floors = 0) => { if (inb(x, y)) { k[y][x] = kind; g[y][x] = floors; } };
+  const free = (x, y) => inb(x, y) && g[y][x] === -1;
 
-  // ─ La Seine, et l'île de la Cité au milieu ─
-  const isl0 = Math.floor(w * 0.3), isl1 = Math.floor(w * 0.72);
-  const river = [];             // pour chaque x : [nord, sud] de l'eau, et l'île
+  const c = Math.round(h * 0.525);                       // l'axe de la Seine
+  const bN = Math.round(h * 0.125), bS = c + 10;         // les boulevards est-ouest (4 rangées)
+  const vb = [Math.round(w * 0.18), Math.round(w * 0.73)];  // les boulevards nord-sud (4 colonnes)
+  const ponts = [3, Math.round(w * 0.34), w - 5];        // des rues de 2 cases, avec un pont
+  const rueN = Math.round(w * 0.52);                     // une rue de 2 cases de chaque côté, sans pont
+  const ix0 = Math.round(w * 0.27), ix1 = ix0 + 17;      // l'île
+  const onIsland = x => x >= ix0 && x <= ix1;
+  const waterN = x => (onIsland(x) ? c - 5 : c - 1), waterS = x => (onIsland(x) ? c + 4 : c + 1);
+
+  // ─ La Seine, l'île, les quais ─
+  for (let x = 0; x < w; x++) for (let y = waterN(x); y <= waterS(x); y++) put(x, y, '~');
+  for (let x = ix0; x <= ix1; x++) for (let y = c - 3; y <= c + 2; y++) { k[y][x] = '.'; g[y][x] = -1; }
   for (let x = 0; x < w; x++) {
-    const c = Math.round(h * 0.6);
-    if (x >= isl0 && x <= isl1) {
-      // deux bras de deux cases, l'île de trois cases entre eux
-      for (const y of [c - 3, c - 2, c + 2, c + 3]) water(x, y);
-      river[x] = { n: c - 3, s: c + 3, island: [c - 1, c + 1] };
+    const xs = [Math.max(0, x - 1), x, Math.min(w - 1, x + 1)];
+    const top = Math.min(...xs.map(waterN)), bottom = Math.max(...xs.map(waterS));
+    for (let y = top - 3; y < waterN(x); y++) put(x, y, 'B');
+    for (let y = waterS(x) + 1; y <= bottom + 3; y++) put(x, y, 'B');
+  }
+  // ─ Les boulevards, droits ─
+  for (let x = 0; x < w; x++) for (const y0 of [bN, bS]) for (let y = y0; y < y0 + 4; y++) put(x, y, 'B');
+  for (const x0 of vb) for (let x = x0; x < x0 + 4; x++) for (let y = 0; y < h; y++) {
+    if (k[y][x] === '~') put(x, y, '='); else put(x, y, 'B');
+  }
+  // ─ Les rues de 2 cases : trois avec un pont, une sans ─
+  const rue = (x0, bridge) => {
+    for (let x = x0; x < x0 + 2; x++) for (let y = 0; y < h; y++) {
+      if (k[y][x] === '~') { if (bridge) put(x, y, '='); continue; }
+      if (!bridge && y > waterN(x) - 4 && y < waterS(x) + 4) continue;
+      if (free(x, y)) put(x, y, '.');
+    }
+  };
+  ponts.forEach(x0 => rue(x0, true));
+  rue(rueN, false);
+
+  // ─ Notre-Dame : un bloc de 8 × 4 cases sur l'île, la façade à l'ouest, sur son parvis ─
+  const nd0 = ix1 - 7;
+  for (let x = ix0; x <= ix1; x++) { put(x, c - 3, '.'); put(x, c + 2, '.'); }              // le tour de l'île
+  for (let x = nd0 - 3; x < nd0; x++) for (let y = c - 3; y <= c + 2; y++) put(x, y, '.');  // le parvis
+  for (let x = nd0; x <= ix1; x++) for (let y = c - 2; y <= c + 1; y++) put(x, y, 'N', 5);  // la nef et le chœur
+  for (const y of [c - 2, c + 1]) put(nd0, y, 'N', 8);                                       // les tours
+  for (const y of [c - 1, c]) put(nd0, y, 'N', 6);                                           // entre elles, la rose
+
+  // ─ Les îlots : ce qui reste à bâtir, par groupes de cases ─
+  const blocks = [];
+  const seen = Array.from({ length: h }, () => new Array(w).fill(false));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!free(x, y) || seen[y][x]) continue;
+    const cells = [[x, y]], b = { cells, x0: x, x1: x, y0: y, y1: y };
+    seen[y][x] = true;
+    for (let i = 0; i < cells.length; i++) {
+      const [cx, cy] = cells[i];
+      b.x0 = Math.min(b.x0, cx); b.x1 = Math.max(b.x1, cx); b.y0 = Math.min(b.y0, cy); b.y1 = Math.max(b.y1, cy);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (free(cx + dx, cy + dy) && !seen[cy + dy][cx + dx]) { seen[cy + dy][cx + dx] = true; cells.push([cx + dx, cy + dy]); }
+    }
+    blocks.push(b);
+  }
+  const gardens = [];
+  const garden = blocks
+    .filter(b => b.cells.length >= 15 && b.cells.length <= 40 && b.y1 < bN + 12 && b.x0 > vb[0] + 4 && b.x1 < vb[1])
+    .sort((p, q) => Math.abs((p.x0 + p.x1) / 2 - w * 0.45) - Math.abs((q.x0 + q.x1) / 2 - w * 0.45))[0];
+
+  blocks.forEach((b, bi) => {
+    const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1, minDim = Math.min(bw, bh);
+    const mine = new Set(b.cells.map(([x, y]) => y * w + x));
+    const inBlock = (x, y) => mine.has(y * w + x);
+    if (b === garden) { for (const [x, y] of b.cells) put(x, y, '.'); gardens.push(b); return; }
+    const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const old = b.cells.every(([x, y]) => onIsland(x) && y >= c - 3 && y <= c + 2) || (cx < w * 0.5 && cy > c) || hash(bi, seed, 5) < 0.28;
+    // la distance de chaque case au bord de l'îlot (1 : contre une rue)
+    const edge = new Map(), q = [];
+    for (const [x, y] of b.cells) if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !inBlock(x + dx, y + dy))) { edge.set(y * w + x, 1); q.push([x, y]); }
+    for (let i = 0; i < q.length; i++) {
+      const [x, y] = q[i], d = edge.get(y * w + x);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (inBlock(x + dx, y + dy) && !edge.has((y + dy) * w + x + dx)) { edge.set((y + dy) * w + x + dx, d + 1); q.push([x + dx, y + dy]); }
+    }
+    const carve = (x, y) => { if (inBlock(x, y)) put(x, y, '.', 0); };
+
+    if (!old) {
+      // haussmannien : 5 à 7 niveaux sur deux cases d'épaisseur, plus bas au cœur
+      const base = r() < 0.6 ? 6 : r() < 0.6 ? 5 : 7;
+      for (const [x, y] of b.cells) {
+        const d = edge.get(y * w + x);
+        put(x, y, '.', d <= 2 ? Math.max(5, Math.min(7, base + (hash(x >> 1, y >> 1, seed, 9) < 0.18 ? -1 : hash(x >> 1, y >> 1, seed, 10) < 0.1 ? 1 : 0))) : 3 + (hash(x, y, seed, 11) < 0.4 ? 1 : 0));
+      }
+      if (minDim >= 5) {
+        // une ruelle au milieu, dans le sens de la longueur ; des passages couverts y mènent
+        const alongX = bw >= bh;
+        const lane = alongX ? Math.round(cy) : Math.round(cx);
+        const cell = (t, s) => (alongX ? [b.x0 + t, s] : [s, b.y0 + t]);
+        const len = alongX ? bw : bh;
+        for (let t = 0; t < len; t++) { const [x, y] = cell(t, lane); if (inBlock(x, y)) carve(x, y); }
+        const span = alongX ? [b.y0, b.y1] : [b.x0, b.x1];
+        for (let t = 2; t < len - 2; t += 5 + Math.floor(r() * 3)) {
+          for (const dir of [-1, 1]) {
+            if (r() < 0.35) continue;
+            // de la rue jusqu'à la ruelle, 2 cases ou plus de bâti : un passage couvert
+            const path = [];
+            let s = lane + dir, open = false;
+            for (; s >= span[0] && s <= span[1]; s += dir) { const [x, y] = cell(t, s); if (g[y][x] > 0 && k[y][x] === '.') path.push([x, y]); else break; }
+            const [ex, ey] = cell(t, s);
+            open = inb(ex, ey) && g[ey][ex] === 0 && (k[ey][ex] === '.' || k[ey][ex] === 'B');
+            if (open && path.length >= 2) for (const [x, y] of path) put(x, y, 'P', g[y][x]);
+          }
+        }
+      }
     } else {
-      for (let y = c - 1; y <= c + 1; y++) water(x, y);
-      river[x] = { n: c - 1, s: c + 1 };
+      // le vieux quartier : des maisons basses, des ruelles d'une case
+      let run = 0, floors = 2;
+      for (const [x, y] of b.cells) {
+        if (run-- <= 0) { run = 1 + Math.floor(r() * 3); const p = r(); floors = p < 0.07 ? 1 : p < 0.55 ? 2 : p < 0.9 ? 3 : 4; }
+        put(x, y, '.', floors);
+      }
+      if (minDim >= 3 && b.cells.length >= 9) {
+        const alongX = bw >= bh;
+        const s0 = alongX ? b.y0 : b.x0, s1 = alongX ? b.y1 : b.x1, t0 = alongX ? b.x0 : b.y0, t1 = alongX ? b.x1 : b.y1;
+        for (let p = s0 + 1 + (minDim >= 4 ? Math.floor(r() * 2) : 0); p <= s1 - 1; p += 3 + Math.floor(r() * 2)) {
+          let s = p;
+          for (let t = t0; t <= t1; t++) {
+            const [x, y] = alongX ? [t, s] : [s, t];
+            carve(x, y);
+            if (r() < 0.1) { const ns = Math.max(s0 + 1, Math.min(s1 - 1, s + (r() < 0.5 ? -1 : 1))); if (ns !== s) { s = ns; const [x2, y2] = alongX ? [t, s] : [s, t]; carve(x2, y2); } }
+          }
+        }
+        if (minDim >= 5) {
+          for (let t = t0 + 2 + Math.floor(r() * 2); t <= t1 - 2; t += 5 + Math.floor(r() * 3)) for (let s = s0; s <= s1; s++) carve(...(alongX ? [t, s] : [s, t]));
+        }
+      }
     }
-  }
-  // les quais : une rue le long de chaque rive
-  for (let x = 0; x < w; x++) { carve(x, river[x].n - 1); carve(x, river[x].s + 1); }
-
-  // ─ Les rues des deux rives ─
-  const lanes = (from, to, step) => { const out = []; let p = from + 2 + Math.floor(r() * 2); while (p < to - 1) { out.push(p); p += step + Math.floor(r() * 2); } return out; };
-  const north = Math.min(...river.map(v => v.n)) - 2, south = Math.max(...river.map(v => v.s)) + 2;
-  for (const y0 of [...lanes(0, north, 3), ...lanes(south, h, 3)]) {
-    let y = y0;
-    for (let x = 1; x < w - 1; x++) {
-      carve(x, y);
-      if (r() < 0.07) { const ny = y + (r() < 0.5 ? -1 : 1); if (k[ny]?.[x] === '.') { carve(x, ny); y = ny; } }
-    }
-  }
-  // des rues nord-sud, qui descendent jusqu'aux quais ; un pont au bout de certaines
-  const bridges = [];
-  for (let x0 = 2 + Math.floor(r() * 2); x0 < w - 2; x0 += 4 + Math.floor(r() * 2)) {
-    for (let y = 1; y < h - 1; y++) if (k[y][x0] === '.') carve(x0, y);
-    if (r() < 0.75 || (x0 > isl0 && x0 < isl1)) bridges.push(x0);
-  }
-  const ndFrom = isl1 - 6, ndTo = isl1 - 2;
-  for (const x of bridges) {
-    if (x >= ndFrom && x <= ndTo) continue;
-    const v = river[x];
-    for (let y = v.n; y <= v.s; y++) {
-      if (k[y][x] === '~') k[y][x] = '=';
-      else if (v.island && y >= v.island[0] && y <= v.island[1]) { g[y][x] = 0; }
-    }
-  }
-
-  // ─ L'île : de vieilles maisons à l'ouest, Notre-Dame à l'est, la façade
-  //   (les tours) tournée vers l'est sur son parvis, pour qu'on la voie ─
-  const nd0 = isl1 - 6;                       // le début de la nef
-  for (let x = isl0; x <= isl1; x++) {
-    const [a, b] = river[x].island;
-    if (x < nd0 - 1 && r() < 0.3) carve(x, a + 1);
-    if (x >= nd0 + 5) for (let y = a; y <= b; y++) carve(x, y);                     // le parvis
-  }
-  for (let x = nd0; x <= nd0 + 4; x++) {
-    const [a] = river[x].island;
-    for (let y = a; y <= a + 1; y++) { k[y][x] = 'N'; g[y][x] = x === nd0 + 4 ? 8 : 5; }  // la nef, puis les tours
-    carve(x, a + 2);                                                                // la rue au sud
-  }
-  for (let x = nd0 - 1; x <= nd0 + 4; x++) if (k[river[x].island[0]][x] !== 'N') carve(x, river[x].island[0]);
-
-  // ─ La place, au nord ─
-  const px = Math.floor(w / 2 - 3 + r() * 2), py = Math.max(2, north - 5);
-  for (let y = py; y < py + 4; y++) for (let x = px; x < px + 5; x++) carve(x, y);
-  // des cours au cœur des îlots épais
-  for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
-    let solid = true;
-    for (let dy = -1; dy <= 1 && solid; dy++) for (let dx = -1; dx <= 1; dx++) if (g[y + dy][x + dx] !== 1 || k[y + dy][x + dx] !== '.') { solid = false; break; }
-    if (solid && r() < 0.3) carve(x, y);
-  }
-
-  // ─ Les hauteurs : haussmannien par îlots, vieilles maisons sur l'île et au sud-est ─
-  const old = (x, y) => (river[x].island && y >= river[x].island[0] && y <= river[x].island[1]) || (y > south && x > w * 0.55);
-  for (let y = 0; y < h; y++) {
-    let x = 0, rowFloors = 0;
-    while (x < w) {
-      if (g[y][x] !== 1 || k[y][x] !== '.') { x++; rowFloors = 0; continue; }
-      const len = 1 + Math.floor(r() * 3);
-      const empty = inside(x, y) && r() < 0.12;
-      if (rowFloors === 0) rowFloors = r() < 0.6 ? 6 : r() < 0.6 ? 5 : 7;
-      const floors = empty ? 0 : old(x, y) || r() < 0.12 ? 2 + Math.floor(r() * 2) : rowFloors;
-      for (let n = 0; n < len && x < w && g[y][x] === 1 && k[y][x] === '.'; n++, x++) g[y][x] = Math.min(MAX_FLOORS, floors);
-    }
-  }
-  // ─ Des passages : sous un immeuble d'une case d'épaisseur, entre deux rues ─
-  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-    if (g[y][x] < 4 || k[y][x] !== '.') continue;
-    const ns = g[y - 1][x] === 0 && g[y + 1][x] === 0 && k[y - 1][x] === '.' && k[y + 1][x] === '.';
-    const ew = g[y][x - 1] === 0 && g[y][x + 1] === 0 && k[y][x - 1] === '.' && k[y][x + 1] === '.';
-    if ((ns || ew) && r() < 0.35) k[y][x] = 'P';
-  }
+  });
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (g[y][x] < 0) g[y][x] = 0;
 
   const rows = g.map(row => row.join('')), ground = k.map(row => row.join(''));
-  // Le départ : la rue la plus dégagée vers l'avant (+x, +y), près de la place
-  let start = [px + 2, py + 2], best = -1;
-  for (let y = py; y < py + 4; y++) for (let x = px; x < px + 5; x++) {
-    if (g[y][x] !== 0) continue;
-    let score = 0;
-    for (let dy = 0; dy < 5; dy++) for (let dx = 0; dx < 5; dx++) if ((g[y + dy]?.[x + dx] ?? 1) === 0) score++;
-    if (score > best) { best = score; start = [x, y]; }
-  }
-  const data = { w, h, seed, start, rows, ground };
-  data.props = generateProps(makeCity(data));
+  const data = { w, h, seed, start: [vb[0] + 2, bN + 2], rows, ground };
+  data.props = generateProps(makeCity(data), { gardens: gardens.map(b => b.cells) });
   return data;
 }

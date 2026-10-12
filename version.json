@@ -1,7 +1,9 @@
 {
-  "version": "1.4.1",
+  "version": "2.0.0",
   "date": "2026-10-12",
   "changes": [
-    "Le Labo : un prototype three.js du jeu, à comparer en direct avec le moteur actuel (isométrique, à hauteur d'enfant, vue libre)"
+    "Le jeu passe en vraie 3D (three.js) : la caméra se fait tourner librement autour de Pierre",
+    "Une ville refaite : de grands boulevards plantés, des ruelles de maisons basses, la Seine d'un bout à l'autre avec cinq ponts, Notre-Dame d'un seul bloc sur son île",
+    "Les arbres, bancs, colonnes Morris et réverbères sont en 3D ; les rats ne se perdent plus dans les rues étroites"
   ]
 }

@@ -3,8 +3,8 @@
    data/ville.json (« props » : [type, x, y, variante]) et placés dans
    l'atelier. Chaque objet est dessiné une fois dans un petit canvas, dans la
    palette du jeu ; les réverbères éclairent la nuit (game.js). */
-import { PAL } from './palette.js?v=1.4.1';
-import { hash, rng } from './city.js?v=1.4.1';
+import { PAL } from './palette.js?v=2.0.0';
+import { hash, rng } from './city.js?v=2.0.0';
 
 export const PROP_TYPES = {
   lamp:    { label: 'Réverbère', icon: 'ti-bulb', r: 2, light: true },
@@ -119,28 +119,79 @@ export function propSprite(type, variant = 0) {
   return s;
 }
 
-// Le mobilier d'un quartier tiré au sort : réverbères le long des façades,
-// arbres, bancs et une colonne sur la place
-export function generateProps(city) {
+/* Le mobilier d'un quartier : le long des avenues et des quais (cases B),
+   en rangées droites : un arbre toutes les 3 cases sur chaque trottoir, un
+   réverbère entre deux arbres, des bancs, une colonne Morris de loin en
+   loin ; sur les places et dans le square, des arbres et des bancs ; dans les
+   ruelles, des réverbères contre les murs et quelques bornes.
+   Chaque objet : [type, x, y, variante, quart de tour] (le quart de tour dit
+   où regarde un banc : 0 vers +y, 1 vers +x, 2 vers −y, 3 vers −x). */
+export function generateProps(city, { gardens = [] } = {}) {
   const out = [];
   const C = 60;
   const r = rng(city.seed * 7 + 3);
+  const isB = (x, y) => city.kind(x, y) === 'B' && city.at(x, y) === 0;
+  const reach = (x, y) => city.reach[y * city.w + x] === 1;
+  // la longueur d'une rangée de cases B, et le rang de la case dedans
+  const run = (x, y, dx, dy) => {
+    let a = 0, b = 0;
+    while (isB(x - dx * (a + 1), y - dy * (a + 1))) a++;
+    while (isB(x + dx * (b + 1), y + dy * (b + 1))) b++;
+    return { before: a, len: a + b + 1 };
+  };
+  const quarter = (dx, dy) => (dy > 0 ? 0 : dx > 0 ? 1 : dy < 0 ? 2 : 3);
+  const bandOf = [];
   for (let y = 0; y < city.h; y++) for (let x = 0; x < city.w; x++) {
-    if (!city.isStreet(x, y)) continue;
+    if (!isB(x, y) || !reach(x, y)) continue;
+    const across = { h: run(x, y, 0, 1), v: run(x, y, 1, 0) };    // h : à travers une avenue est-ouest
+    // l'avenue est-ouest : étroite en y, longue en x ; l'autre l'inverse ; un carrefour : ni l'une ni l'autre
+    const horiz = across.h.len <= 6 && across.v.len > across.h.len + 2;
+    const vert = across.v.len <= 6 && across.h.len > across.v.len + 2;
+    if (!horiz && !vert) continue;
+    const a = horiz ? across.h : across.v;
+    if (a.before !== 0 && a.before !== a.len - 1) continue;       // seulement les deux trottoirs
+    const side = a.before === 0 ? -1 : 1;                           // −1 : le bord nord (ou ouest)
+    const along = horiz ? x : y;
+    const nx = horiz ? 0 : side, ny = horiz ? side : 0;             // vers l'extérieur de l'avenue
+    // du côté de l'eau ?
+    const waterSide = city.isWater(x + nx, y + ny);
+    const px = (u, v) => horiz ? [(x + u) * C, (y + v) * C] : [(x + v) * C, (y + u) * C];
+    // u : le long de l'avenue (0..1 dans la case), v : en travers (0 au bord extérieur, 1 côté chaussée)
+    const at = (u, v) => { const vv = side < 0 ? v : 1 - v; return px(u, vv); };
+    const slot = ((along % 3) + 3) % 3;
+    if (slot === 0) {
+      // un arbre au milieu du trottoir (ou une colonne Morris de loin en loin)
+      const [wx, wy] = at(0.5, 0.5);
+      if (along % 15 === 6 && !waterSide && side < 0) out.push(['colonne', Math.round(wx), Math.round(wy), 0, 0]);
+      else out.push(['tree', Math.round(wx), Math.round(wy), Math.floor(r() * 6), 0]);
+    } else if (slot === 1) {
+      const [wx, wy] = at(0.5, 0.86);                                // au bord de la chaussée
+      out.push(['lamp', Math.round(wx), Math.round(wy), 0, 0]);
+    } else if (hash(x, y, city.seed, 64) < 0.4) {
+      // un banc contre le mur (ou le parapet du quai), tourné vers la chaussée ou vers l'eau
+      const [wx, wy] = at(0.5, waterSide ? 0.25 : 0.2);
+      out.push(['bench', Math.round(wx), Math.round(wy), Math.floor(r() * 2), quarter(-nx, -ny)]);
+    }
+  }
+  // Les places et le square : des arbres épars, un banc, une colonne
+  for (const cells of gardens) {
+    for (const [x, y] of cells) {
+      if (hash(x, y, city.seed, 65) < 0.45) out.push(['tree', Math.round((x + 0.3 + r() * 0.4) * C), Math.round((y + 0.3 + r() * 0.4) * C), Math.floor(r() * 6), 0]);
+      else if (hash(x, y, city.seed, 66) < 0.14) out.push(['bench', Math.round((x + 0.5) * C), Math.round((y + 0.5) * C), Math.floor(r() * 2), Math.floor(r() * 4)]);
+    }
+    const [mx, my] = cells[Math.floor(cells.length / 2)];
+    out.push(['colonne', Math.round((mx + 0.5) * C), Math.round((my + 0.5) * C), 0, 0]);
+  }
+  // Les ruelles et les rues : des réverbères contre les murs, parfois une borne
+  for (let y = 0; y < city.h; y++) for (let x = 0; x < city.w; x++) {
+    if (city.kind(x, y) !== '.' || !city.isStreet(x, y) || !reach(x, y)) continue;
+    if (gardens.some(cells => cells.some(([gx, gy]) => gx === x && gy === y))) continue;
     const walls = [[0, -1], [-1, 0], [0, 1], [1, 0]].filter(([dx, dy]) => city.at(x + dx, y + dy) > 0);
-    const openAround = [[0, -1], [-1, 0], [0, 1], [1, 0]].filter(([dx, dy]) => city.isStreet(x + dx, y + dy)).length;
-    if (walls.length && hash(x, y, city.seed, 61) < 0.22) {
-      // un réverbère contre le mur, à 40 cm
+    if (walls.length && hash(x, y, city.seed, 61) < 0.2) {
       const [dx, dy] = walls[0];
       const wx = (x + 0.5) * C + dx * 21, wy = (y + 0.5) * C + dy * 21;
-      out.push(['lamp', Math.round(wx + (r() - 0.5) * 20 * Math.abs(dy)), Math.round(wy + (r() - 0.5) * 20 * Math.abs(dx)), 0]);
-      if (r() < 0.25) out.push(['borne', Math.round(wx + 12 * (dy ? 1 : 0)), Math.round(wy + 12 * (dx ? 1 : 0)), 0]);
-    } else if (openAround === 4 && hash(x, y, city.seed, 62) < 0.35) {
-      // en plein espace (la place) : un arbre, parfois un banc ou une colonne
-      out.push(['tree', Math.round((x + 0.3 + r() * 0.4) * C), Math.round((y + 0.3 + r() * 0.4) * C), Math.floor(r() * 6)]);
-      if (r() < 0.35) out.push(['bench', Math.round((x + 0.5) * C + 14), Math.round((y + 0.5) * C - 6), Math.floor(r() * 2)]);
-    } else if (openAround === 4 && hash(x, y, city.seed, 63) < 0.08) {
-      out.push(['colonne', Math.round((x + 0.5) * C), Math.round((y + 0.5) * C), 0]);
+      out.push(['lamp', Math.round(wx + (r() - 0.5) * 20 * Math.abs(dy)), Math.round(wy + (r() - 0.5) * 20 * Math.abs(dx)), 0, 0]);
+      if (r() < 0.25) out.push(['borne', Math.round(wx + 12 * (dy ? 1 : 0)), Math.round(wy + 12 * (dx ? 1 : 0)), 0, 0]);
     }
   }
   return out;
