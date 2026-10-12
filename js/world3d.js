@@ -14,15 +14,15 @@
      poupée).
    - Le mobilier : des instances de modèles (props3d.js).
    - Notre-Dame : un seul bloc (cathedral3d.js). */
-import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.0.0';
-import { CELL, FLOOR } from './scale.js?v=2.0.0';
-import { hash } from './city.js?v=2.0.0';
-import { renderColumn } from './buildings.js?v=2.0.0';
-import { makeGroundColor } from './ground.js?v=2.0.0';
-import { createMesher, TONES } from './geo.js?v=2.0.0';
-import { buildPropGeometries } from './props3d.js?v=2.0.0';
-import { buildCathedral } from './cathedral3d.js?v=2.0.0';
-import { PROP_TYPES } from './props.js?v=2.0.0';
+import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.0.1';
+import { CELL, FLOOR } from './scale.js?v=2.0.1';
+import { hash, hash3 } from './city.js?v=2.0.1';
+import { renderColumn } from './buildings.js?v=2.0.1';
+import { makeGroundColor } from './ground.js?v=2.0.1';
+import { createMesher, TONES } from './geo.js?v=2.0.1';
+import { buildPropGeometries } from './props3d.js?v=2.0.1';
+import { buildCathedral } from './cathedral3d.js?v=2.0.1';
+import { PROP_TYPES } from './props.js?v=2.0.1';
 
 export const WATER_Y = -14;                    // la Seine, 70 cm sous les quais
 const SLAB = 9;                                // l'épaisseur d'un tablier de pont
@@ -106,6 +106,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   // en attendant sa façade, un immeuble est d'une seule pierre
   const flatTex = byteTexture(new Uint8Array([PAL_INDEX.pierre]), 1, 1);
 
+  let waterMat = null;
   // ─── Le sol : une texture, un pixel par pixel du monde ───
   onProgress('Le sol…');
   const colorAt = makeGroundColor(city, { quayWalls: false, pits: true });
@@ -134,16 +135,12 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
       pos.push(x0, y, z0, x0, y, z1, x1, y, z0, x1, y, z0, x0, y, z1, x1, y, z1);
       uv.push(ua, va, ua, vb, ub, va, ub, va, ua, vb, ub, vb);
     };
+    const wpos = [];                                  // l'eau, à part
+    const wquad = (x0, z0) => { const x1 = x0 + CELL, z1 = z0 + CELL, y = WATER_Y; wpos.push(x0, y, z0, x0, y, z1, x1, y, z0, x1, y, z0, x0, y, z1, x1, y, z1); };
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
       const k = city.kind(i, j);
-      quad(i * CELL, j * CELL, k === '~' ? WATER_Y : 0, i * CELL, j * CELL);
-      if (k === '=') {
-        // l'eau sous le pont : la couleur d'une case d'eau voisine, vers l'amont ou l'aval
-        for (let d = 1; d <= 8; d++) {
-          const hit = [[d, 0], [-d, 0], [0, d], [0, -d]].find(([dx, dy]) => waterAt(i + dx, j + dy));
-          if (hit) { quad(i * CELL, j * CELL, WATER_Y, (i + hit[0]) * CELL, (j + hit[1]) * CELL); break; }
-        }
-      }
+      if (k === '~' || k === '=') wquad(i * CELL, j * CELL);   // (sous un pont aussi)
+      if (k !== '~') quad(i * CELL, j * CELL, 0, i * CELL, j * CELL);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -153,6 +150,39 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     ground.frustumCulled = false;
     root.add(ground);
     root.userData.ground = ground;
+    // La Seine : un petit motif qui se répète (glaçons, rides), lu en coordonnées du monde et
+    // qui glisse vers l'est ; une seconde couche de rides, plus lente, en sens contraire
+    const WW = 144, WH = 96, wd = new Uint8Array(WW * WH);
+    for (let y = 0; y < WH; y++) for (let x = 0; x < WW; x++) {
+      const n = hash3(x, y, 3), fx = Math.floor(x / 9), fy = Math.floor(y / 6);
+      let key;
+      if (hash3(fx, fy, 7) < 0.2) { const edge = x % 9 < 1 || y % 6 < 1; key = edge ? 'neigeO' : n < 0.15 ? 'neigeM' : n < 0.4 ? 'neige' : 'neigeM'; }
+      else key = n < 0.06 ? 'ardoise' : 'nuit2';
+      wd[y * WW + x] = PAL_INDEX[key];
+    }
+    const wtex = byteTexture(wd, WW, WH);
+    wtex.wrapS = wtex.wrapT = THREE.RepeatWrapping;
+    wtex.onUpdate = null;
+    const wg = new THREE.BufferGeometry();
+    wg.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
+    waterMat = new THREE.ShaderMaterial({
+      uniforms: { map: { value: wtex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uT: { value: 0 }, uBase: { value: PAL_INDEX.nuit2 }, uFleck: { value: PAL_INDEX.neigeO } },
+      vertexShader: `varying vec2 vW; void main() { vW = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `
+        uniform sampler2D map; uniform sampler2D pal; uniform float palN; uniform float uT; uniform float uBase; uniform float uFleck;
+        varying vec2 vW;
+        void main() {
+          vec2 sz = vec2(${WW}.0, ${WH}.0);
+          float a = floor(texture2D(map, floor(vW + vec2(uT * 5.0, sin(uT * 0.4) * 2.0)) / sz).r * 255.0 + 0.5);
+          float b = floor(texture2D(map, floor(vW * vec2(1.0, 1.3) + vec2(31.0 - uT * 3.0, 17.0 + uT * 1.5)) / sz).r * 255.0 + 0.5);
+          // des rides qui luisent là où l'eau est nue
+          if (abs(a - uBase) < 0.5 && abs(b - uBase) > 0.5 && abs(b - uFleck) > 0.5 && mod(floor(vW.x * 0.5 + vW.y + uT * 2.0), 7.0) < 1.0) a = uFleck;
+          gl_FragColor = vec4(texture2D(pal, vec2((a + 0.5) / palN, 0.5)).rgb, 1.0);
+        }`,
+    });
+    const water = new THREE.Mesh(wg, waterMat);
+    water.frustumCulled = false;
+    root.add(water);
   }
 
   // ─── Les quais et les ponts ───
@@ -174,7 +204,12 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
       m.box(cx, -SLAB, cz, CELL, SLAB - 0.4, CELL, TONES.stone);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         if (!waterAt(i + dx, j + dz)) continue;
-        m.box(cx + dx * (CELL / 2 - 2.5), 0, cz + dz * (CELL / 2 - 2.5), dx ? 5 : CELL, 7, dz ? 5 : CELL, TONES.stone, { up: 'neige' });
+        // un garde-corps de fonte sur un petit soubassement de pierre : des barreaux, deux lisses, la neige dessus
+        const ex = cx + dx * (CELL / 2 - 2), ez = cz + dz * (CELL / 2 - 2), lx = dx ? 3.2 : CELL, lz = dz ? 3.2 : CELL;
+        m.box(ex, 0, ez, lx, 3, lz, TONES.stone, { up: 'neige' });
+        m.box(ex, 11, ez, dx ? 1.6 : CELL, 1.4, dz ? 1.6 : CELL, TONES.iron, { up: 'neige' });
+        m.box(ex, 6, ez, dx ? 1 : CELL, 1, dz ? 1 : CELL, TONES.iron);
+        for (let t = -27; t <= 27; t += 6) m.box(ex + (dx ? 0 : t), 3, ez + (dz ? 0 : t), 1.2, t % 18 === 0 || Math.abs(t) === 27 ? 9 : 8, 1.2, TONES.black, { fixed: 'nuit' });
       }
     }
     const mesh = new THREE.Mesh(m.geometry(), new THREE.MeshBasicMaterial({ vertexColors: true }));
@@ -333,7 +368,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     const hTop = H + 36 + 24;
     const corners = [];
     for (const x of [ox, ox + CELL]) for (const z of [oz, oz + CELL]) for (const y of [0, hTop]) corners.push(x, y, z);
-    const b = { i, j, n, mesh, mat, step: () => steps.shift()(), done: () => !steps.length, cut: 0, target: 0, cx: ox + CELL / 2, cz: oz + CELL / 2, corners };
+    const b = { i, j, n, top: hTop, mesh, mat, step: () => steps.shift()(), done: () => !steps.length, cut: 0, target: 0, cx: ox + CELL / 2, cz: oz + CELL / 2, corners };
     buildings.push(b);
     return b;
   }
@@ -379,16 +414,16 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   // le rond de lumière d'un réverbère, tramé, posé sur le sol
   {
     const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-    const pool = document.createElement('canvas'); pool.width = pool.height = 128;
+    const R = 100, pool = document.createElement('canvas'); pool.width = pool.height = R * 2;
     const pg = pool.getContext('2d');
-    pg.fillStyle = PAL.neigeM;
-    for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
-      const t = Math.max(0, 1 - Math.hypot(x - 63.5, y - 63.5) / 64) * 1.5;
-      if (t * 16 > BAYER[(y % 4) * 4 + (x % 4)] + 4) pg.fillRect(x, y, 1, 1);
+    for (let y = 0; y < R * 2; y++) for (let x = 0; x < R * 2; x++) {
+      const t = Math.max(0, 1 - Math.hypot(x - R + 0.5, y - R + 0.5) / R) * 1.7, v = t * 16, b = BAYER[(y % 4) * 4 + (x % 4)];
+      if (v > b + 7) { pg.fillStyle = PAL.neigeM; pg.fillRect(x, y, 1, 1); }
+      else if (v > b + 1) { pg.fillStyle = PAL.neigeO; pg.fillRect(x, y, 1, 1); }
     }
     const t = nearest(new THREE.CanvasTexture(pool));
     const poolMat = new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.5, depthWrite: false });
-    const geo = new THREE.PlaneGeometry(128, 128); geo.rotateX(-Math.PI / 2);
+    const geo = new THREE.PlaneGeometry(R * 2, R * 2); geo.rotateX(-Math.PI / 2);
     const mesh = new THREE.InstancedMesh(geo, poolMat, Math.max(1, lamps.length));
     const dummy = new THREE.Object3D();
     lamps.forEach(([x, z], k) => { dummy.position.set(x, 0.25, z); dummy.updateMatrix(); mesh.setMatrixAt(k, dummy.matrix); });
@@ -423,15 +458,22 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     for (const b of buildings) {
       let want = 0;
       const dx = b.cx - px, dz = b.cz - pz;
-      if (cutting && dx * dx + dz * dz < MAX_CUT_DIST * MAX_CUT_DIST && dx * fx + dz * fz > -35) {
-        let bx0 = 9, bx1 = -9, by0 = 9, by1 = -9, behind = false;
-        const c = b.corners;
-        for (let k = 0; k < c.length; k += 3) {
-          proj(c[k], c[k + 1], c[k + 2], o);
-          if (o[2] <= 0.1) { behind = true; break; }
-          bx0 = Math.min(bx0, o[0]); bx1 = Math.max(bx1, o[0]); by0 = Math.min(by0, o[1]); by1 = Math.max(by1, o[1]);
+      // la caméra dans (ou contre) un immeuble : il s'abaisse, sinon on ne voit plus rien
+      if (cutting && (b.cx - camera.position.x) ** 2 + (b.cz - camera.position.z) ** 2 < 100 * 100 && camera.position.y < b.top + 10) want = 1;
+      if (!want && cutting && dx * dx + dz * dz < MAX_CUT_DIST * MAX_CUT_DIST && dx * fx + dz * fz > -35) {
+        // près de la droite caméra → Pierre (sinon il ne cache rien de ce qu'on regarde)
+        const side = Math.abs(dx * fz - dz * fx);
+        if (side < radius + 60) {
+          let bx0 = 9, bx1 = -9, by0 = 9, by1 = -9, behind = false;
+          const c = b.corners;
+          for (let k = 0; k < c.length; k += 3) {
+            proj(c[k], c[k + 1], c[k + 2], o);
+            if (o[2] <= 0.1) { behind = true; break; }
+            bx0 = Math.min(bx0, o[0]); bx1 = Math.max(bx1, o[0]); by0 = Math.min(by0, o[1]); by1 = Math.max(by1, o[1]);
+          }
+          // … et qui se voit à l'écran (un immeuble hors du champ ne baisse pas)
+          if (!behind && bx0 < x1 && bx1 > x0 && by0 < y1 && by1 > y0 && bx1 > -1 && bx0 < 1 && by1 > -1 && by0 < 1) want = 1;
         }
-        if (behind || (bx0 < x1 && bx1 > x0 && by0 < y1 && by1 > y0)) want = 1;
       }
       b.target = want;
       if (b.cut !== want) {
@@ -462,5 +504,6 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   const dispose = () => {
     root.traverse(o => { o.geometry?.dispose?.(); if (o.material) { for (const mt of [].concat(o.material)) { for (const u of Object.values(mt.uniforms || {})) u.value?.dispose?.(); mt.map?.dispose?.(); mt.dispose(); } } });
   };
-  return { root, buildings, chimneys, lamps, palTex, indexOfRGB, updateCuts, paintSome, dispose };
+  const setTime = t => { if (waterMat) waterMat.uniforms.uT.value = t; };
+  return { root, buildings, chimneys, lamps, palTex, indexOfRGB, updateCuts, paintSome, setTime, dispose };
 }

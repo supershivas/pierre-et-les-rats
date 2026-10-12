@@ -106,7 +106,7 @@ body {
 .game { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: pointer; }
 .vignette {
   position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgba(0,0,0,.7) 100%);
+  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 60%, rgba(0,0,0,.4) 100%);
 }
 
 /* HUD : la palette du jeu */

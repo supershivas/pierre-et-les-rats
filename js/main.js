@@ -1,12 +1,12 @@
 /* L'app : l'en-tête, l'écran d'accueil, le prologue, le HUD, les commandes
    (clavier et pouce), les réglages, la sauvegarde et la mise à jour. */
-import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=2.0.0';
-import { makeCity } from './city.js?v=2.0.0';
-import { loadCity, readDraft } from './city-store.js?v=2.0.0';
-import { createGame } from './game.js?v=2.0.0';
-import { makeFlute } from './audio.js?v=2.0.0';
-import { MOVE, keyIs, stopTypeahead } from './keys.js?v=2.0.0';
-import { attachPointer } from './controls.js?v=2.0.0';
+import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=2.0.1';
+import { makeCity } from './city.js?v=2.0.1';
+import { loadCity, readDraft } from './city-store.js?v=2.0.1';
+import { createGame } from './game.js?v=2.0.1';
+import { makeFlute } from './audio.js?v=2.0.1';
+import { MOVE, keyIs, stopTypeahead } from './keys.js?v=2.0.1';
+import { attachPointer } from './controls.js?v=2.0.1';
 
 const SAVE_KEY = 'pierre:partie';
 const PREFS_KEY = 'pierre:prefs';
@@ -57,7 +57,7 @@ async function newGameObject(fromSave) {
   game = null;
   if (use3d) {
     try {
-      const { createGame3D } = await import('./game3d.js?v=2.0.0');
+      const { createGame3D } = await import('./game3d.js?v=2.0.1');
       game = await createGame3D({ ...options, onProgress: setLoading });
     } catch (err) { console.warn('Moteur 3D indisponible, retour au moteur 2D :', err); use3d = false; }
   }

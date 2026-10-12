@@ -16,7 +16,11 @@ export function attachPointer(canvas, game, { active = () => true } = {}) {
   const down = e => {
     if (!active()) return;
     canvas.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, orbit: e.button === 2 || e.button === 1 });
+    // la souris n'a qu'un pointeur : un clic droit dont le relâchement s'est perdu ne doit pas
+    // faire croire à deux doigts (la vue tournerait au lieu de diriger Pierre)
+    if (e.pointerType === 'mouse') for (const id of [...pointers.keys()]) if (pointers.get(id).mouse) pointers.delete(id);
+    if (e.pointerType === 'mouse') { walkPointer = null; pinch = null; }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, orbit: e.button === 2 || e.button === 1, mouse: e.pointerType === 'mouse' });
     if (pointers.size >= 2 && game.canRotate) {
       walkPointer = null; game.input.hold = false; game.input.target = null;
       pinch = spread();
@@ -31,6 +35,7 @@ export function attachPointer(canvas, game, { active = () => true } = {}) {
     if (!p) return;
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
+    if (p.mouse && e.buttons === 0) { pointers.delete(e.pointerId); if (e.pointerId === walkPointer) { walkPointer = null; game.input.hold = false; } return; }
     if (pointers.size >= 2 && pinch) {
       const now = spread();
       game.orbit?.((now.cx - pinch.cx) * 0.008, (now.cy - pinch.cy) * 0.004);
@@ -46,10 +51,12 @@ export function attachPointer(canvas, game, { active = () => true } = {}) {
   };
   const wheel = e => { if (active() && game.zoomBy) { e.preventDefault(); game.zoomBy(Math.exp(-e.deltaY * 0.0015)); } };
   const menu = e => e.preventDefault();
+  const lost = e => up(e);
   canvas.addEventListener('pointerdown', down);
   canvas.addEventListener('pointermove', move);
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('lostpointercapture', lost);
   canvas.addEventListener('wheel', wheel, { passive: false });
   canvas.addEventListener('contextmenu', menu);
   return () => {

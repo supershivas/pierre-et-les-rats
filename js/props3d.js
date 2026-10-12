@@ -3,8 +3,8 @@
    sommets (geo.js), en pixels du jeu (1 px = 5 cm), posée sur le sol à
    l'origine ; le banc regarde vers +z. Les couleurs viennent du ton de la
    face (lune, mi-ombre, ombre) et de la neige sur le dessus des branches. */
-import { createMesher, TONES } from './geo.js?v=2.0.0';
-import { rng } from './city.js?v=2.0.0';
+import { createMesher, TONES } from './geo.js?v=2.0.1';
+import { rng } from './city.js?v=2.0.1';
 
 // Le réverbère : un fût de fonte, une lanterne vitrée, un chapeau de neige (3,5 m)
 function lamp(m) {

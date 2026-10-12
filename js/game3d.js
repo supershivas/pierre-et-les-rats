@@ -8,15 +8,15 @@
    l'est, y (ici z pour three.js) vers le sud, le haut est y pour three.js.
    L'image est calculée en petite résolution (environ 250 px de haut) puis
    agrandie d'un facteur entier sans lissage : pixels nets, palette exacte. */
-import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.0.0';
-import { CELL } from './scale.js?v=2.0.0';
-import { loadThree } from './three-lib.js?v=2.0.0';
-import { buildWorld, tick } from './world3d.js?v=2.0.0';
-import { createSwarm, ST } from './swarm.js?v=2.0.0';
-import { PROP_TYPES } from './props.js?v=2.0.0';
-import { makeGroundColor } from './ground.js?v=2.0.0';
-import { hash } from './city.js?v=2.0.0';
-import { drawNote } from './sprites.js?v=2.0.0';
+import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.0.1';
+import { CELL } from './scale.js?v=2.0.1';
+import { loadThree } from './three-lib.js?v=2.0.1';
+import { buildWorld, tick } from './world3d.js?v=2.0.1';
+import { createSwarm, ST } from './swarm.js?v=2.0.1';
+import { PROP_TYPES } from './props.js?v=2.0.1';
+import { makeGroundColor } from './ground.js?v=2.0.1';
+import { hash } from './city.js?v=2.0.1';
+import { drawNote } from './sprites.js?v=2.0.1';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const PIERRE_R = 5;
@@ -238,32 +238,46 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   }
 
   // ─── Pierre : une silhouette noire, en volumes simples ───
-  function makePierre(matBody, matCoat, matFlute) {
+  function makePierre(matBody, matCoat, matFlute, matArm = matCoat) {
     const g = new THREE.Group();
     const box = (w, h, d, x, y, z, mat, parent = g) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); parent.add(m); return m; };
     const limb = (x, y, w, h, mat) => { const pivot = new THREE.Group(); pivot.position.set(x, y, 0); g.add(pivot); box(w, h, w * 1.1, 0, -h / 2, 0, mat, pivot); return pivot; };
+    // un bras : l'épaule, et le coude qui plie (deux segments de 4,6 px)
+    const arm = (x, mat) => {
+      const upper = limb(x, 20.4, 2.2, ARM, mat), fore = new THREE.Group();
+      fore.position.set(0, -ARM, 0); upper.add(fore); box(2, ARM, 2.2, 0, -ARM / 2, 0, mat, fore);
+      return { upper, fore, x };
+    };
     const legL = limb(-1.9, 11, 3, 11, matBody), legR = limb(1.9, 11, 3, 11, matBody);
     const torso = box(7.4, 10, 4.4, 0, 16, 0, matCoat);
-    const armL = limb(-4.6, 20.4, 2.2, 9, matCoat), armR = limb(4.6, 20.4, 2.2, 9, matCoat);
+    const armL = arm(-4.6, matArm), armR = arm(4.6, matArm);
     const head = new THREE.Group(); head.position.set(0, 21, 0); g.add(head);
     box(4.8, 4.8, 4.8, 0, 2.4, 0, matBody, head);
     box(5.8, 2.2, 5.8, 0, 5.4, 0, matBody, head);        // le bonnet
     box(2.2, 1.2, 2.2, 0, 6.9, 0, matBody, head);
-    const flute = box(0.9, 0.9, 9, 1.4, 1.6, 4.6, matFlute, head);   // la flûte, devant la bouche
-    flute.rotation.y = 0.35;
+    const flute = box(0.9, 0.9, 9, 0, 0, 0, matFlute, g);   // la flûte, tenue devant la bouche
+    flute.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), FLUTE_DIR);
+    flute.position.copy(MOUTH).addScaledVector(FLUTE_DIR, 4.6);
     return { g, legL, legR, armL, armR, torso, head, flute };
   }
-  const mBody = new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.nuit) });
-  const mCoat = new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.nuit2) });
-  const mFlute = new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.neige) });
-  const ghostPierreMat = new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(PAL.ocre) } },
-    vertexShader: `void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform vec3 uColor; void main() { ${DITHER} gl_FragColor = vec4(uColor, 1.0); }`,
-    depthFunc: THREE.GreaterDepth, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-  });
-  const body = makePierre(mBody, mCoat, mFlute), ghost = makePierre(ghostPierreMat, ghostPierreMat, ghostPierreMat);
-  actors.add(body.g); ghostScene.add(ghost.g);
+  const ARM = 4.6;
+  const MOUTH = new THREE.Vector3(0, 22.3, 2.9), FLUTE_DIR = new THREE.Vector3(0, -0.45, 0.89).normalize();
+  const HANDS = [MOUTH.clone().addScaledVector(FLUTE_DIR, 2.3).add(new THREE.Vector3(-0.6, 0, 0)), MOUTH.clone().addScaledVector(FLUTE_DIR, 5.4).add(new THREE.Vector3(0.6, 0, 0))];
+  const DOWN = new THREE.Vector3(0, -1, 0), tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3();
+  const qU = new THREE.Quaternion(), qF = new THREE.Quaternion();
+  // Une main sur la flûte : le coude se plie vers le bas et l'extérieur (deux segments, la main au bout)
+  function reach(a, hand) {
+    const s = tmpA.set(a.x, 20.4, 0), v = tmpB.copy(hand).sub(s), dist = Math.min(v.length(), ARM * 2 - 0.05);
+    v.normalize();
+    const half = dist / 2, h = Math.sqrt(Math.max(0, ARM * ARM - half * half));
+    const pole = tmpC.set(Math.sign(a.x) * 0.7, -1, -0.15);
+    pole.addScaledVector(v, -pole.dot(v)).normalize();
+    const elbow = new THREE.Vector3().copy(s).addScaledVector(v, half).addScaledVector(pole, h);
+    const dU = new THREE.Vector3().subVectors(elbow, s).normalize(), dF = new THREE.Vector3().subVectors(hand, elbow).normalize();
+    qU.setFromUnitVectors(DOWN, dU); qF.setFromUnitVectors(DOWN, dF);
+    a.upper.quaternion.copy(qU);
+    a.fore.quaternion.copy(qU).invert().multiply(qF);
+  }
   function posePierre(p, t, playingNow) {
     const walk = pierre.moving ? Math.sin(pierre.t * 9) : 0;
     p.g.position.set(pierre.x, 0, pierre.y);
@@ -271,16 +285,28 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     p.legL.rotation.x = walk * 0.75; p.legR.rotation.x = -walk * 0.75;
     p.torso.position.y = 16 + (pierre.moving ? Math.abs(walk) * 0.7 : 0);
     if (playingNow) {
-      // les deux bras levés vers la flûte, qui tressaute au rythme de l'air
-      p.armL.rotation.set(-2.1, 0, -0.5); p.armR.rotation.set(-2.2, 0, 0.5);
-      p.head.rotation.x = Math.sin(t * 7) * 0.06; p.head.position.y = 21 + Math.sin(t * 7) * 0.3;
+      // les deux mains sur la flûte, devant la bouche ; la tête et la flûte suivent l'air
+      reach(p.armL, HANDS[0]); reach(p.armR, HANDS[1]);
+      p.head.rotation.x = 0.12 + Math.sin(t * 7) * 0.05; p.head.position.y = 21 + Math.sin(t * 7) * 0.25;
     } else {
-      p.armL.rotation.set(-walk * 0.6, 0, 0.06); p.armR.rotation.set(walk * 0.6, 0, -0.06);
+      p.armL.upper.rotation.set(-walk * 0.6, 0, 0.06); p.armR.upper.rotation.set(walk * 0.6, 0, -0.06);
+      p.armL.fore.rotation.set(-0.25 - Math.max(0, walk) * 0.5, 0, 0); p.armR.fore.rotation.set(-0.25 - Math.max(0, -walk) * 0.5, 0, 0);
       p.head.rotation.x = 0; p.head.position.y = 21;
     }
     p.flute.visible = playingNow;
   }
-
+  const mBody = new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.nuit) });
+  const mCoat = new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.nuit2) });
+  const mFlute = new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.neige) });
+  const mArm = new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.pierreL) });
+  const ghostPierreMat = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(PAL.ocre) } },
+    vertexShader: `void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uColor; void main() { ${DITHER} gl_FragColor = vec4(uColor, 1.0); }`,
+    depthFunc: THREE.GreaterDepth, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  const body = makePierre(mBody, mCoat, mFlute, mArm), ghost = makePierre(ghostPierreMat, ghostPierreMat, ghostPierreMat);
+  actors.add(body.g); ghostScene.add(ghost.g);
   // ─── Notes de musique, fumées, neige ───
   const noteTex = [];                                  // [kind][fade 0|1|2]
   for (let kind = 0; kind < 2; kind++) {
@@ -475,7 +501,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     body.g.visible = ghost.g.visible = !attract;
     ratMesh.visible = ghostRats.visible = !attract;
     ghostRatMat.uniforms.uP.value.set(pierre.x, pierre.y);
-    trMat.uniforms.now.value = time;
+    trMat.uniforms.now.value = time; world.setTime(time);
     flMat.uniforms.uT.value = time; flMat.uniforms.uC.value.set(cam.tx, 0, cam.tz);
     flushTraces();
     renderer.clear();

@@ -1,14 +1,14 @@
 /* Les moteurs, en direct dans le Labo : le jeu 3D d'aujourd'hui (three.js,
    caméra libre, depuis la v2.0.0) et l'ancien moteur 2D isométrique, avec le
    même quartier et la même nuée. Rien n'est lu ni écrit dans le navigateur. */
-import { makeCity } from './city.js?v=2.0.0';
-import { loadPublished } from './city-store.js?v=2.0.0';
-import { attachPointer, attachKeys } from './controls.js?v=2.0.0';
+import { makeCity } from './city.js?v=2.0.1';
+import { loadPublished } from './city-store.js?v=2.0.1';
+import { attachPointer, attachKeys } from './controls.js?v=2.0.1';
 
 /* Le jeu 3D : ZQSD (ou WASD) pour marcher, ou toucher le sol ; J et L, deux doigts
    ou le bouton droit pour tourner la vue ; la molette zoome. */
 export async function mount3D(host, { rats = 300, onStats = () => {} } = {}) {
-  const { createGame3D } = await import('./game3d.js?v=2.0.0');
+  const { createGame3D } = await import('./game3d.js?v=2.0.1');
   const city = makeCity(await loadPublished());
   const canvas = document.createElement('canvas');
   canvas.className = 'game';
@@ -25,7 +25,7 @@ export async function mount3D(host, { rats = 300, onStats = () => {} } = {}) {
 
 /* L'ancien moteur : le canvas 2D isométrique */
 export async function mount2D(host, { rats = 300 } = {}) {
-  const { createGame } = await import('./game.js?v=2.0.0');
+  const { createGame } = await import('./game.js?v=2.0.1');
   const city = makeCity(await loadPublished());
   const canvas = document.createElement('canvas');
   canvas.className = 'game';

@@ -1,5 +1,13 @@
 # Historique
 
+## 2.0.1 — 2026-10-12
+- Les immeubles ne se baissent plus que s'ils cachent vraiment Pierre à l'écran (plus de maisons coupées hors du champ)
+- La souris dirige Pierre : un clic droit perdu ne fait plus tourner la vue à la place
+- Plus de lumière : ombres tramées, façades moins noires la nuit, larges halos de réverbère
+- La Seine coule (glaçons et rides animés) ; des garde-corps de fonte sur les ponts
+- Un pont débouche toujours sur une rue (le générateur et l'atelier rasent les maisons à ses bouts)
+- Pierre tient sa flûte à deux mains devant la bouche
+
 ## 2.0.0 — 2026-10-12
 - Le jeu passe en vraie 3D (three.js) : la caméra se fait tourner librement autour de Pierre (J et L, deux boutons à l'écran, le bouton droit ou deux doigts ; la molette ou le pincement zooment)
 - Une ville refaite : de grands boulevards droits plantés d'arbres, de réverbères et de bancs, des ruelles de maisons basses, la Seine d'un bout à l'autre de la carte avec cinq ponts, Notre-Dame d'un seul bloc sur son île

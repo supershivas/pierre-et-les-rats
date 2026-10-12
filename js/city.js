@@ -7,8 +7,8 @@
      { "w": 26, "h": 22, "seed": 1871, "start": [x, y],
        "rows": ["0023340…", …],   // un chiffre par colonne, 0 à 7
        "props": [["lamp", 315, 642, 0], …] }   // le mobilier : type, x, y (monde), variante */
-import { MAX_FLOORS } from './scale.js?v=2.0.0';
-import { generateProps } from './props.js?v=2.0.0';
+import { MAX_FLOORS } from './scale.js?v=2.0.1';
+import { generateProps } from './props.js?v=2.0.1';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
@@ -288,6 +288,14 @@ export function generateQuarter(seed = 1871, w = 44, h = 40) {
     }
   });
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (g[y][x] < 0) g[y][x] = 0;
+  // un pont débouche toujours sur une rue : jamais de maison à ses deux bouts
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (k[y][x] !== '=') continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (inb(nx, ny) && k[ny][nx] !== '~' && k[ny][nx] !== '=' && k[ny][nx] !== 'N' && g[ny][nx] > 0) { g[ny][nx] = 0; if (k[ny][nx] === 'P') k[ny][nx] = '.'; }
+    }
+  }
 
   const rows = g.map(row => row.join('')), ground = k.map(row => row.join(''));
   const data = { w, h, seed, start: [vb[0] + 2, bN + 2], rows, ground };

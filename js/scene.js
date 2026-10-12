@@ -1,11 +1,11 @@
 /* La scène : le sol, puis colonnes d'immeubles et personnages triés de
    l'arrière vers l'avant (somme des cases x + y). Partagée par le jeu et
    l'atelier. Coordonnées « écran monde » : x = wx − wy, y = (wx + wy) / 2. */
-import { CELL, FLOOR } from './scale.js?v=2.0.0';
-import { renderColumn } from './buildings.js?v=2.0.0';
-import { makeGround } from './ground.js?v=2.0.0';
-import { propSprite } from './props.js?v=2.0.0';
-import { PAL } from './palette.js?v=2.0.0';
+import { CELL, FLOOR } from './scale.js?v=2.0.1';
+import { renderColumn } from './buildings.js?v=2.0.1';
+import { makeGround } from './ground.js?v=2.0.1';
+import { propSprite } from './props.js?v=2.0.1';
+import { PAL } from './palette.js?v=2.0.1';
 
 export function makeScene(city, { night = false } = {}) {
   const ground = makeGround(city);

@@ -82,7 +82,7 @@ planche gardent les tokens du design system.
   les temps (ms).
 - `js/world3d.js` : le monde. **Le sol** : une texture d'un octet par pixel
   (indice de palette) lue par un shader qui lit la palette dans une texture de
-  9 × 1 ; l'eau à −14 px, des murs de quai, des ponts à parapets. **Un immeuble** =
+  9 × 1 ; l'eau à −14 px (un maillage à part : un motif de 144 × 96 qui se répète, lu en coordonnées du monde, avec un décalage dans le temps : la Seine coule), des murs de quai, des ponts à garde-corps de fonte. Un pont débouche toujours sur une rue (générateur et atelier). **Un immeuble** =
   une géométrie (4 murs, toit à la Mansart ou à deux pans selon les voisins,
   lucarnes, cheminées) + une texture d'indices de 4 faces côte à côte, peinte par
   `renderColumn` (buildings.js) : deux faces telles quelles, les deux autres en
@@ -90,7 +90,7 @@ planche gardent les tokens du design system.
   **après le démarrage, les plus proches de Pierre d'abord** (`paintSome`, un
   budget de quelques ms par image, en deux temps par immeuble). **La coupe** :
   chaque image, un immeuble entre la caméra et Pierre dont la boîte, projetée
-  à l'écran, recouvre le disque autour de lui, tombe à `CUT_H` (le shader
+  à l'écran (et visible à l'écran), recouvre le disque autour de lui, et qui est près de la droite caméra → Pierre (plus : celui où la caméra entre), tombe à `CUT_H` (le shader
   rabat tout ce qui est au-dessus, en 0,2 s). Les passages (`P`) sont de vrais
   tunnels (l'arche est du vide : l'indice 255 est jeté par le shader).
 - `js/cathedral3d.js` : Notre-Dame, **un seul bloc** : tours, façade peinte,

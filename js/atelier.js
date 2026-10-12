@@ -2,14 +2,14 @@
    enregistré tout de suite dans ce navigateur (le brouillon, que le jeu lit
    et signale), puis publié d'un geste dans le dépôt (data/ville.json, un
    commit sur main par l'API de GitHub, avec un jeton gardé ici). */
-import { makeCity, cityToData, generateQuarter } from './city.js?v=2.0.0';
-import { loadPublished, readDraft, writeDraft, sameCity, formatCity } from './city-store.js?v=2.0.0';
-import { makeScene } from './scene.js?v=2.0.0';
-import { CELL, ROOF, MAX_FLOORS } from './scale.js?v=2.0.0';
-import { PROP_TYPES, propSprite } from './props.js?v=2.0.0';
-import { PAL } from './palette.js?v=2.0.0';
-import { keyIs, stopTypeahead } from './keys.js?v=2.0.0';
-import { drawPierre } from './sprites.js?v=2.0.0';
+import { makeCity, cityToData, generateQuarter } from './city.js?v=2.0.1';
+import { loadPublished, readDraft, writeDraft, sameCity, formatCity } from './city-store.js?v=2.0.1';
+import { makeScene } from './scene.js?v=2.0.1';
+import { CELL, ROOF, MAX_FLOORS } from './scale.js?v=2.0.1';
+import { PROP_TYPES, propSprite } from './props.js?v=2.0.1';
+import { PAL } from './palette.js?v=2.0.1';
+import { keyIs, stopTypeahead } from './keys.js?v=2.0.1';
+import { drawPierre } from './sprites.js?v=2.0.1';
 
 const REPO = 'supershivas/pierre-et-les-rats', BRANCH = 'main', PATH = 'data/ville.json';
 const TOKEN_KEY = 'pierre:gh-token';
@@ -216,7 +216,14 @@ function apply([i, j]) {
       if (city.start[0] === i && city.start[1] === j) { toast('Pierre ne part pas de l\'eau.'); return; }
       if (k === '~' || k === '=') next = '.'; else { next = '~'; height = 0; }
     } else if (terrainKind === 'bridge') {
-      if (k === '~') next = '='; else if (k === '=') next = '~'; else { toast('Un pont se pose sur la Seine.'); return; }
+      if (k === '~') {
+        next = '=';
+        // une rue en face de chaque entrée : les maisons au bout du pont sont rasées
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const ni = i + dx, nj = j + dy, nk = city.kind(ni, nj);
+          if (nk !== '~' && nk !== '=' && nk !== 'N' && nk !== '#' && city.at(ni, nj) > 0) { history.push({ i: ni, j: nj, n: city.at(ni, nj), kind: nk }); city.set(ni, nj, 0); if (nk === 'P') city.setKind(ni, nj, '.'); scene.invalidate(ni, nj); }
+        }
+      } else if (k === '=') next = '~'; else { toast('Un pont se pose sur la Seine.'); return; }
     } else if (terrainKind === 'passage') {
       if (k === 'P') next = '.'; else if (n > 0 && k === '.') next = 'P'; else { toast('Un passage se creuse sous un immeuble.'); return; }
     } else if (terrainKind === 'boulevard') {
@@ -235,6 +242,7 @@ function apply([i, j]) {
     return;
   }
   if (tool !== 'start' && (k === '~' || k === '=')) { toast('On ne bâtit pas sur la Seine : outil Terrain pour la rendre à la rue.'); return; }
+  if (tool === 'build' && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => city.kind(i + dx, j + dy) === '=')) { toast('Un pont débouche sur une rue : on n\'y bâtit pas.'); return; }
   if (tool === 'start') {
     if (!city.walk(i, j) || k === 'P') { toast('Pierre doit partir d\'une rue.'); return; }
     history.push({ start: [...city.start] });
