@@ -1,5 +1,13 @@
 # Historique
 
+## 1.4.0 — 2026-10-12
+- On change d'époque : Paris en janvier 1871, l'hiver du siège, juste avant la Commune
+- La Seine traverse le quartier, se partage autour de l'île de la Cité où se dresse Notre-Dame ; des quais, des ponts, des trottoirs, des passages sous les immeubles
+- Les maisons basses sont de vieilles maisons parisiennes ; les immeubles haussmanniens ont plusieurs rez-de-chaussée (boutique, porte cochère, café, porte), des balcons au 2e et au 5e, une à trois cheminées
+- Le monde à hauteur d'enfant : plus de vue large ; la nuit tombe du ciel et des étages, et les maisons devant Pierre se coupent au rez-de-chaussée pour qu'on voie la rue
+- L'atelier : une vue de dessus (le nombre d'étages sur chaque case) et un outil Terrain (Seine, pont, passage, Notre-Dame)
+- Le Labo : des scénarios de la Commune, des personnages, des objets, des bâtiments et des idées d'urbanisme
+
 ## 1.3.0 — 2026-10-11
 - Le Labo (lien dans les réglages) : dix idées pour la suite, du conte de Hamelin à l'épopée de 1815, chacune avec une vignette animée
 - Le décor (rues, immeubles, mobilier) est pré-calculé en une seule image : le jeu est plus fluide

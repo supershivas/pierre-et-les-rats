@@ -1,12 +1,13 @@
 /* La scène : le sol, puis colonnes d'immeubles et personnages triés de
    l'arrière vers l'avant (somme des cases x + y). Partagée par le jeu et
    l'atelier. Coordonnées « écran monde » : x = wx − wy, y = (wx + wy) / 2. */
-import { CELL, FLOOR } from './scale.js?v=1.3.0';
-import { renderColumn } from './buildings.js?v=1.3.0';
-import { makeGround } from './ground.js?v=1.3.0';
-import { propSprite } from './props.js?v=1.3.0';
+import { CELL, FLOOR } from './scale.js?v=1.4.0';
+import { renderColumn } from './buildings.js?v=1.4.0';
+import { makeGround } from './ground.js?v=1.4.0';
+import { propSprite } from './props.js?v=1.4.0';
+import { PAL } from './palette.js?v=1.4.0';
 
-export function makeScene(city) {
+export function makeScene(city, { night = false } = {}) {
   const ground = makeGround(city);
   const cache = new Map();
   const keyOf = (i, j) => j * city.w + i;
@@ -18,7 +19,7 @@ export function makeScene(city) {
     const k = keyOf(i, j);
     let c = cache.get(k);
     if (!c) {
-      c = renderColumn(city, i, j); cache.set(k, c);
+      c = renderColumn(city, i, j, { night }); cache.set(k, c);
       if (cache.size > cacheMax) cache.delete(cache.keys().next().value);
     }
     return c;
@@ -70,11 +71,33 @@ export function makeScene(city) {
       }
       const c = column(it.i, it.j);
       const a = fade ? fade(it.i, it.j) : 1;
+      const x0 = Math.round(it.fx - CELL - camX), y0 = Math.round(it.fy - c.h + 1 - camY);
+      if (a === 'cut') { drawCut(ctx, c, x0, y0); continue; }
       if (a < 1) ctx.globalAlpha = a;
-      ctx.drawImage(c.canvas, Math.round(it.fx - CELL - camX), Math.round(it.fy - c.h + 1 - camY));
+      ctx.drawImage(c.canvas, x0, y0);
       if (a < 1) ctx.globalAlpha = 1;
     }
     return items;
+  }
+
+  /* La coupe (maison de poupée) : on ne garde que le rez-de-chaussée d'une
+     colonne, tranchée net au-dessus ; la tranche est un losange sombre. */
+  function drawCut(ctx, c, x0, y0) {
+    const H = c.h, top = H - 1 - FLOOR;           // le haut du rez-de-chaussée au coin avant
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + top - CELL / 2); ctx.lineTo(x0 + CELL, y0 + top); ctx.lineTo(x0 + CELL * 2 + 1, y0 + top - CELL / 2);
+    ctx.lineTo(x0 + CELL * 2 + 1, y0 + H); ctx.lineTo(x0, y0 + H);
+    ctx.closePath(); ctx.clip();
+    ctx.drawImage(c.canvas, x0, y0);
+    ctx.restore();
+    // la tranche : le dessus du rez-de-chaussée, comme un plancher coupé
+    ctx.fillStyle = PAL.nuit2;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + top - CELL / 2); ctx.lineTo(x0 + CELL, y0 + top - CELL); ctx.lineTo(x0 + CELL * 2, y0 + top - CELL / 2); ctx.lineTo(x0 + CELL, y0 + top);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = PAL.pierreS;
+    for (let u = 0; u <= CELL; u++) { ctx.fillRect(x0 + u, y0 + top - CELL / 2 + Math.floor(u / 2), 1, 1); ctx.fillRect(x0 + CELL + u, y0 + top - Math.floor(u / 2), 1, 1); }
   }
 
   // Les sommets de cheminée visibles, en écran monde

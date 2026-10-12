@@ -1,4 +1,4 @@
-/* La palette du jeu : la nuit d'hiver 1815, bleu nuit, blanc et noir.
+/* La palette du jeu : la nuit d'hiver 1871, bleu nuit, blanc et noir.
    Les noms des clés viennent de la première palette (pierre, ocre…) et sont
    gardés pour ne pas toucher aux dessins. Restreinte et déclarée dans
    CLAUDE.md ; le canvas, le HUD (css/style.css, variables --g-*) et les

@@ -4,7 +4,7 @@
    Légende : b corps (noir), c dos (bleu nuit clair), t queue.
    Toutes les poses regardent vers la droite ou vers le bas/haut de l'écran ;
    la gauche est le miroir de la droite. Ancre : milieu du bas. */
-import { PAL, RGB } from './palette.js?v=1.3.0';
+import { PAL, RGB } from './palette.js?v=1.4.0';
 
 const KEYS = { b: 'brun', c: 'brunC', t: 'rose' };
 

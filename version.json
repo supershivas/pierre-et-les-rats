@@ -1,9 +1,9 @@
 {
-  "version": "1.3.0",
-  "date": "2026-10-11",
+  "version": "1.4.0",
+  "date": "2026-10-12",
   "changes": [
-    "Le Labo : dix idées pour la suite, à comparer une à une",
-    "Le décor est pré-calculé en une seule image : le jeu est plus fluide",
-    "Le zoom recule plus tard et plus lentement"
+    "Paris pendant la Commune, l'hiver du siège : la Seine, l'île de la Cité et Notre-Dame, des quais, des ponts, des trottoirs, des passages",
+    "Le monde à hauteur d'enfant : la nuit tombe des étages, et les maisons devant Pierre se coupent au rez-de-chaussée",
+    "L'atelier gagne une vue de dessus et un outil Terrain ; le Labo propose scénarios, personnages, objets, bâtiments et urbanisme"
   ]
 }

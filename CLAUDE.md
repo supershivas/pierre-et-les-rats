@@ -6,10 +6,11 @@
 
 Jeu en pixel art isométrique, dans la lignée graphique de Kingvi mais plus
 détaillé (niveau de détail de *Kingdom*). On incarne Pierre, un enfant qui
-joue de la flûte dans le Paris de la fin de l'époque napoléonienne, l'hiver
-très rigoureux de 1815. Des notes sortent de la flûte ; les rats sortent des
-bouches d'égout, le rejoignent et le suivent en laissant de légères traces
-dans la neige. L'armée grossit à mesure qu'il joue.
+joue de la flûte dans **le Paris de la Commune** (v1.4.0 ; avant : 1815) :
+janvier 1871, l'hiver du siège, où l'on mange les rats. Des notes sortent
+de la flûte ; les rats sortent des bouches d'égout, le rejoignent et le
+suivent en laissant de légères traces dans la neige. L'armée grossit à
+mesure qu'il joue. Le monde est vu **à hauteur d'enfant**.
 
 - **Production** : https://supershivas.github.io/pierre-et-les-rats/
 - **Catégorie** : secondaire (socle obligatoire ; fonctionnalités avancées
@@ -24,12 +25,9 @@ dans la neige. L'armée grossit à mesure qu'il joue.
 Porte-fenêtre : 12 × 40 px. Arcade du rez-de-chaussée : 28 × 48 px. Module
 d'immeuble : une case de 60 × 60 px, un étage de 60 px (3 m), comble de
 34 px, 7 niveaux au plus. Réverbère : 11 × 70 px (3,5 m).
-La vue suit l'armée : environ 250 px du jeu en hauteur jusqu'à 30 rats,
-puis elle s'élargit (logarithme) jusqu'à 640 px vers 3 000 rats
-(`VIEW_NEAR`, `VIEW_FAR`, `ARMY_NEAR`, `ARMY_FAR`, `viewHeight` dans
-game.js), toujours agrandie d'un facteur entier ; quand le facteur change,
-une transformation CSS fait un travelling de 5 s (`checkZoom`, vérifié
-toutes les 6 s : jamais deux paliers coup sur coup).
+La vue est fixe, de près : environ 250 px du jeu en hauteur (`VIEW_H` dans
+game.js), agrandie d'un facteur entier. Plus de zoom qui recule avec
+l'armée (retiré en v1.4.0 : « on vit le monde à hauteur d'enfant »).
 Pierre n'est qu'**une silhouette noire** (`silhouette: true` de `drawPierre`).
 
 ### Palette du jeu (js/palette.js, variables --g-* de css/style.css)
@@ -78,11 +76,16 @@ planche gardent les tokens du design system.
   tampon de profondeur des maisons, un seul envoi par image.
 - `js/rat-sprites.js` : les poses des rats (galop ×3, vers nous, de dos,
   dressé ×2, saut, en boule), en listes de pixels et en petits canvas.
-- `js/city.js` : le modèle du quartier (une hauteur par case, 0 = rue), le
-  hasard déterministe `hash`, le générateur de quartier `generateQuarter`
-  (clairsemé, environ 45 % de cases bâties : îlots d'immeubles de 5 à 7
-  niveaux à la même corniche, quelques maisons basses, terrains vagues ;
-  départ sur la case la plus dégagée de la place).
+- `js/city.js` : le modèle du quartier : une hauteur par case (« rows »,
+  0 = rien de bâti) et un terrain par case (« ground » : `.` rue ou maison,
+  `~` Seine, `=` pont, `P` passage sous un immeuble, `N` Notre-Dame, tour
+  à partir de 7 niveaux). `city.walk(i, j)` dit où l'on marche (rue, pont,
+  passage) : c'est la seule règle de passage, utilisée partout. Le hasard
+  déterministe `hash`, le générateur `generateQuarter` (26 × 22) : la Seine
+  d'ouest en est, partagée autour de l'île de la Cité (Notre-Dame à l'est,
+  façade et rose tournées vers +x pour être vues, parvis devant), quais,
+  ponts, rues des deux rives, îlots haussmanniens de 5 à 7 niveaux, vieilles
+  maisons sur l'île et au sud-est, passages, départ sur la place.
 - `js/props.js` : le mobilier urbain (réverbère, arbre, banc, colonne
   Morris, borne), dessiné une fois par type, tiré au sort par
   `generateProps`, gardé dans `data/ville.json` (« props » : type, x, y en
@@ -91,14 +94,22 @@ planche gardent les tokens du design system.
   nuit, seulement s'il y en a un à l'écran).
 - `js/buildings.js` : **le générateur d'immeubles iso**. Chaque colonne est
   peinte pixel par pixel une fois ; faces, ouvertures, toit, pignons,
-  cheminées s'adaptent aux voisins (façon Townscaper). **Peu de détails, à
-  dessein** : murs unis, vitres noires. Ce qui fait **haussmannien**
-  (v1.2.0), c'est le rythme : RDC à refends et arcades, deux hautes
-  portes-fenêtres par module alignées d'étage en étage, balcons filants au
-  2e et au dernier étage, corniche épaisse, comble à la Mansart avec deux
-  lucarnes par module.
-- `js/ground.js` : la neige des rues (une grande image), ombres portées,
-  congères, bouches d'égout ; traces imprimées et effacées.
+  cheminées (0 à 3) s'adaptent aux voisins (façon Townscaper). **Peu de
+  détails, à dessein** : murs unis, vitres noires. Trois styles :
+  haussmannien (4 niveaux et plus : RDC à refends avec boutique, porte
+  cochère, café ou porte ; entresol ; fronton au 2e ; balcons filants au 2e
+  et au 5e ; balconnets ; corniche ; Mansart et lucarnes ; deux ou trois
+  fenêtres par module), **vieille maison parisienne** (3 niveaux et moins :
+  fenêtres irrégulières à volets, devanture de bois, toit à deux pans,
+  lucarne à poulie), Notre-Dame (nef : contreforts, lancettes, toit raide ;
+  tours : portail, galerie des rois, rose éclairée, abat-sons, balustrade).
+  Option `night` (le jeu) : au-dessus de 3,75 m la façade s'enfonce dans le
+  noir (trame de Bayer selon la hauteur, `NIGHT_Z0`, `NIGHT_Z1`), sauf les
+  fenêtres éclairées ; l'atelier dessine sans la nuit.
+- `js/ground.js` : le sol (une grande image) : chaussée, trottoirs et leur
+  bordure le long des maisons, ombres portées, bouches d'égout ; la Seine
+  (eau noire, glaçons), les murs de quai, les ponts et leurs parapets ;
+  traces imprimées et effacées.
 - `js/scene.js` : tri arrière → avant des colonnes et des sprites, partagé
   par le jeu et l'atelier ; **le décor pré-calculé** (v1.3.0, `buildDecor`,
   `drawDecor`) : sol, maisons et mobilier dans une seule image (en
@@ -113,13 +124,15 @@ planche gardent les tokens du design system.
 - `js/audio.js` : la flûte (WebAudio) et son air.
 - `js/city-store.js` : chargement du quartier publié et du brouillon.
 - `atelier.html`, `js/atelier.js`, `css/atelier.css` : l'Atelier (bâtir,
-  démolir un étage ou un objet, point de départ, mobilier, nouveau
-  quartier, publier).
+  démolir un étage ou un objet, point de départ, mobilier, terrain : Seine,
+  pont, passage, Notre-Dame ; nouveau quartier, publier). Bouton « Plan »
+  (touche V) : la vue de dessus, une case par carré, le nombre d'étages
+  écrit dessus, pour atteindre les maisons cachées derrière les autres.
 - `echelle.html`, `js/echelle.js` : la planche d'échelle.
 - `labo.html`, `js/labo.js`, `css/labo.css` : le Labo (créé à la demande de
-  Jérôme, v1.3.0). Dix idées de suite en quatre sujets (le conte de
-  Hamelin, l'Empereur des rats, Paris hiver 1815, les airs de la flûte) ;
-  A = le jeu d'aujourd'hui. Chaque idée : un titre, une phrase, une
+  Jérôme, v1.3.0 ; refait pour la Commune en v1.4.0). Cinq sujets
+  (scénarios de la Commune, personnages secondaires, objets, bâtiments,
+  urbanisme), quatre idées chacun ; A = le jeu d'aujourd'hui. Chaque idée : un titre, une phrase, une
   vignette animée (vue de face, palette du jeu, fonctions de `ART`) et trois
   colonnes (le récit, le jeu, ce que ça demande). Ajouter une idée = une
   entrée dans `TOPICS` et sa vignette. Lien « Labo » (fiole) dans les
@@ -127,6 +140,9 @@ planche gardent les tokens du design system.
 - `scripts/stamp-version.mjs` : estampille `?v=` sur imports et feuilles de
   style ; **à lancer après chaque changement de `version.json`** (GitHub
   Pages garde 10 min de cache).
+- `data/ville.json` : régénérer le quartier par défaut avec
+  `generateQuarter(1871)` puis `formatCity` (city-store.js) ; vérifier que
+  « ground » y figure.
 
 ## Exceptions aux conventions
 
@@ -135,15 +151,16 @@ planche gardent les tokens du design system.
 
 ## Pièges connus
 
-- Les immeubles de devant cachent les rues : on estompe (opacité 0,45) les
-  colonnes dont la silhouette couvre Pierre, et on redessine Pierre tramé
-  en ocre là où il reste caché (`xray` dans game.js).
+- Les immeubles de devant cachent les rues (et la Seine) : autour de Pierre,
+  les colonnes plus en avant qui couvrent ses abords sont **coupées au
+  rez-de-chaussée** (maison de poupée, `'cut'` dans `scene.draw`,
+  `drawCut`), dans le rectangle redessiné en détail ; les rats s'y voient.
+  Pierre reste tramé en ocre là où il serait encore caché (`xray`).
 - Modifier une hauteur change l'aspect des voisines : `scene.invalidate`
   efface le cache des 3 × 3 colonnes et repeint le sol alentour.
-- La nuit (v1.0.2) : un masque de noir tramé (Bayer 4 × 4) posé sur la
-  scène, clair autour de Pierre puis de plus en plus dense (`NIGHT`,
-  `buildDarkness` dans game.js) ; les notes, la neige qui tombe et la
-  silhouette de Pierre sont dessinées par-dessus.
+- La nuit vient du ciel et des étages (v1.4.0), peinte dans les maisons
+  (`night` de buildings.js) ; plus de masque rond autour de Pierre. Les
+  réverbères gardent une flamme vive.
 - Performances (Chromium sans carte graphique, vue 1280 × 760) : 3 000
   rats → simulation 4,4 ms, rendu 9,7 ms (7,8 ms sans rats). Un drawImage
   par rat coûtait 12 ms de plus ; un envoi du tampon par diagonale, encore

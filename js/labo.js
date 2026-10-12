@@ -1,13 +1,13 @@
-/* Le labo : dix pistes pour la suite, à comparer une à une. Chaque sujet
+/* Le labo : des pistes pour la suite (Paris, la Commune), à comparer une à une. Chaque sujet
    commence par A, ce que le jeu fait aujourd'hui ; les autres lettres sont
    des idées, chacune avec une vignette animée (dans la palette du jeu) et
    ce qu'elle changerait. Rien n'est lu ni écrit dans le navigateur.
 
    Ajouter une idée = ajouter une entrée dans TOPICS (et sa vignette). */
-import { PAL } from './palette.js?v=1.3.0';
-import { drawPierre, drawNote } from './sprites.js?v=1.3.0';
-import { ATLAS, POSE_ROWS } from './rat-sprites.js?v=1.3.0';
-import { hash } from './city.js?v=1.3.0';
+import { PAL } from './palette.js?v=1.4.0';
+import { drawPierre, drawNote } from './sprites.js?v=1.4.0';
+import { ATLAS, POSE_ROWS } from './rat-sprites.js?v=1.4.0';
+import { hash } from './city.js?v=1.4.0';
 
 const W = 320, H = 180;
 
@@ -83,139 +83,125 @@ const ART = {
     swarm(g, 160, 150, 40, t, 70, 16);
     pierre(g, 160, 150, 'play', t); notes(g, 168, 126, t);
   },
+  // ─ Scénarios ─
+  siege(g, t) {
+    night(g, t); facades(g, 110, 21); groundBand(g, 110);
+    // l'étal du marchand : des rats pendus sous l'enseigne
+    px(g, 60, 70, 'neige', 50, 8); px(g, 64, 72, 'nuit', 42, 4);
+    for (let k = 0; k < 6; k++) { px(g, 64 + k * 8, 78, 'nuit', 1, 6); rat(g, 64 + k * 8, 92, 0, 1, 0, 'rear'); }
+    // le chasseur et son filet
+    const hx = 190 + Math.sin(t * 0.8) * 30;
+    px(g, hx, 126, 'nuit', 8, 26); px(g, hx - 2, 122, 'nuit', 12, 5);
+    for (let k = 0; k < 7; k++) px(g, hx + 8 + k * 2, 124 - k * 3, 'neigeO', 1, 1);
+    // la nuée file se cacher dans la bouche d'égout
+    px(g, 250, 156, 'nuit', 14, 3);
+    for (let k = 0; k < 18; k++) { const p = (t * 0.4 + k / 18) % 1; rat(g, 120 + p * 130, 156 + Math.sin(k) * 4, t, 1, k); }
+    pierre(g, 110, 150, 'stand', t);
+  },
+  canons(g, t) {
+    night(g, t);
+    // la butte Montmartre, les canons sur la crête
+    for (let x = 0; x < W; x++) { const y = 70 + Math.pow((x - 220) / 120, 2) * 70; px(g, x, Math.min(H, y), 'neigeM', 1, H - y); }
+    for (const cx of [190, 225, 260]) { px(g, cx - 10, 66, 'nuit', 20, 4); px(g, cx - 6, 70, 'nuit', 4, 6); px(g, cx + 2, 70, 'nuit', 4, 6); px(g, cx + 8, 62, 'nuit', 14, 3); }
+    // les soldats reculent, la foule et les rats montent
+    for (let k = 0; k < 40; k++) { const p = (t * 0.15 + k / 40) % 1; rat(g, 40 + p * 140, 150 - p * 70 + Math.sin(k) * 4, t, 1, k); }
+    for (let k = 0; k < 5; k++) { const x = 30 + k * 18 + (t * 8) % 18; pierre(g, x, 160 - k * 2, 'walk', t + k); }
+    notes(g, 40, 130, t);
+  },
+  semaine(g, t) {
+    night(g, t);
+    // les façades en feu : des fenêtres qui vacillent
+    facades(g, 110, 23, (x, f) => hash(x, f, Math.floor(t * 6)) < 0.35);
+    groundBand(g, 110);
+    // la barricade : pavés, tonneaux, une roue ; un drapeau qui claque au-dessus
+    for (let k = 0; k < 60; k++) px(g, 120 + hash(k, 1) * 80, 138 + hash(k, 2) * 18 - Math.sin((hash(k, 1)) * 3.14) * 18, 'pierreL', 5, 3);
+    px(g, 150, 100, 'nuit', 1, 30);
+    for (let y = 0; y < 10; y++) px(g, 151, 100 + y, 'ocre', 14 + Math.round(Math.sin(t * 6 + y * 0.6) * 2), 1);
+    // les rats passent sous la barricade, Pierre les attend de l'autre côté
+    for (let k = 0; k < 20; k++) { const p = (t * 0.3 + k / 20) % 1; rat(g, 40 + p * 240, 165 + Math.sin(k) * 3, t, 1, k); }
+    pierre(g, 260, 162, 'play', t); notes(g, 268, 138, t);
+  },
+  hamelin(g, t) { ART.prefet(g, t); },
   prefet(g, t) {
     night(g, t); facades(g, 110, 5); groundBand(g, 110);
-    // la préfecture : une grande porte éclairée, le préfet en bicorne
     px(g, 228, 70, 'pierreL', 70, 40); px(g, 252, 80, 'ocre', 22, 30);
-    px(g, 259, 86, 'nuit', 8, 24); px(g, 256, 82, 'nuit', 14, 4); // le préfet et son bicorne
-    // la bourse, tendue puis retirée
+    px(g, 259, 86, 'nuit', 8, 24); px(g, 256, 82, 'nuit', 14, 4);
     const k = (t * 0.25) % 1, bx = 250 - Math.min(1, k * 2) * 30 + Math.max(0, k * 2 - 1) * 30;
     px(g, bx, 100, 'neige', 6, 6); px(g, bx + 2, 98, 'neige', 2, 2);
     swarm(g, 110, 150, 28, t, 50, 12);
     pierre(g, 150, 150, 'stand', t);
   },
-  seine(g, t) {
-    night(g, t); facades(g, 72, 7);
-    px(g, 0, 72, 'neigeO', W, 14);                // le quai
-    px(g, 0, 86, 'neigeO', W, H - 86);            // la Seine gelée
-    for (let k = 0; k < 40; k++) px(g, hash(k, 9) * W, 90 + hash(k, 10) * 80, 'neigeM', 8 + hash(k, 11) * 20, 1);
-    // les rats marchent sur la glace en longue file
-    const n = 60;
-    for (let k = 0; k < n; k++) {
-      const x = ((k * 9 + t * 22) % (W + 60)) - 30, y = 128 + Math.sin(k * 1.7) * 8;
-      rat(g, x, y, t, 1, k);
-    }
-    // la glace craque, de plus en plus
-    const c = (t * 0.2) % 1;
-    let x = 200, y = 100;
-    for (let s = 0; s < c * 90; s++) { x += hash(s, 1) * 3 - 0.6; y += hash(s, 2) * 2 - 0.5; px(g, x, y, 'nuit', 2, 1); if (s % 9 === 0) px(g, x, y + 1, 'nuit', 1, 3); }
-    pierre(g, 40, 84, 'play', t); notes(g, 48, 60, t);
+  // ─ Personnages ─
+  louise(g, t) {
+    night(g, t); facades(g, 110, 25); groundBand(g, 110);
+    // des affiches collées au mur
+    for (let k = 0; k < 4; k++) { px(g, 40 + k * 22, 84, 'neige', 16, 20); for (let l = 0; l < 5; l++) px(g, 42 + k * 22, 87 + l * 3, 'neigeO', 12, 1); }
+    // Louise : longue robe, un livre sous le bras, elle montre une affiche
+    const lx = 170;
+    px(g, lx, 112, 'nuit', 10, 8); px(g, lx - 2, 120, 'nuit', 14, 32); px(g, lx - 4, 140, 'nuit', 18, 12);
+    px(g, lx + 2, 104, 'nuit', 6, 8); px(g, lx + 10, 122, 'neige', 6, 4);
+    px(g, lx - 6, 118 + Math.round(Math.sin(t * 2)), 'nuit', 8, 2);
+    pierre(g, 210, 152, 'stand', t, -1);
+    swarm(g, 250, 160, 12, t, 30, 6);
   },
-  enfants(g, t) {
-    night(g, t); facades(g, 110, 9); groundBand(g, 110);
-    const walk = (t * 18) % 60;
-    pierre(g, 210 + walk * 0.2, 150, 'play', t); notes(g, 218 + walk * 0.2, 126, t);
-    // les gamins des rues, à la file, un peu plus petits
-    for (let k = 0; k < 6; k++) {
-      const x = 186 - k * 22 + walk * 0.2, y = 152 + (k % 2) * 4;
-      g.save(); g.translate(x, y); g.scale(0.8, 0.8); pierre(g, 0, 0, 'walk', t + k * 0.3); g.restore();
-    }
-    swarm(g, 120, 168, 14, t, 90, 4, 3);
+  gavroche(g, t) {
+    night(g, t); facades(g, 110, 27); groundBand(g, 110);
+    // Victor court, une miche sous le bras ; Pierre et les rats derrière lui
+    const run = (t * 60) % 400 - 40;
+    g.save(); g.translate(run, 156); g.scale(0.85, 0.85); pierre(g, 0, 0, 'walk', t * 2); g.restore();
+    px(g, run + 3, 140, 'neige', 5, 3);
+    pierre(g, run - 50, 156, 'walk', t * 1.5);
+    for (let k = 0; k < 14; k++) rat(g, run - 70 - k * 9, 160 + Math.sin(k + t * 4) * 3, t * 2, 1, k);
   },
-  centjours(g, t) {
+  marchand(g, t) {
+    night(g, t); facades(g, 110, 29); groundBand(g, 110);
+    // les cages empilées, un rat dans chacune ; le marchand en tablier
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) {
+      const x = 60 + c * 22, y = 100 + r * 20;
+      px(g, x, y, 'pierreL', 20, 18);
+      rat(g, x + 10, y + 16, t, 1, r * 4 + c, (r + c) % 2 ? 'rear' : null);
+      for (let b = 0; b < 20; b += 3) px(g, x + b, y, 'nuit', 1, 18);
+    }
+    px(g, 170, 116, 'nuit', 12, 36); px(g, 168, 108, 'nuit', 14, 8); px(g, 172, 126, 'neigeM', 8, 20);
+    // une cage ouverte : un rat s'échappe vers Pierre
+    const p = (t * 0.3) % 1;
+    rat(g, 150 + p * 100, 164, t, 1, 3);
+    pierre(g, 260, 162, 'play', t); notes(g, 268, 138, t);
+  },
+  aeronaute(g, t) {
+    night(g, t); facades(g, 140, 31); groundBand(g, 140);
+    // le ballon monté s'élève au-dessus des toits
+    const y = 90 - ((t * 6) % 60);
+    for (let dy = -30; dy <= 30; dy++) { const w = Math.round(Math.sqrt(900 - dy * dy)); px(g, 160 - w, y + dy, 'neige', w * 2, 1); }
+    for (let k = -2; k <= 2; k++) px(g, 160 + k * 10, y - 10, 'neigeO', 1, 40);
+    px(g, 150, y + 45, 'nuit', 20, 10); px(g, 152, y + 38, 'nuit', 1, 8); px(g, 167, y + 38, 'nuit', 1, 8);
+    // des pigeons voyageurs autour
+    for (let k = 0; k < 5; k++) px(g, 120 + ((t * 30 + k * 40) % 120), y - 20 + k * 6 + Math.sin(t * 8 + k) * 2, 'neige', 2, 1);
+    pierre(g, 70, 172, 'stand', t);
+  },
+  // ─ Objets ─
+  barricades(g, t) { ART.semaine(g, t); },
+  ballon(g, t) {
     night(g, t);
-    // le plan de Paris en losanges : les quartiers ralliés s'allument un à un
-    const order = 20, lit = Math.floor((t * 1.5) % (order + 4));
-    let n = 0;
-    for (let j = 0; j < 4; j++) for (let i = 0; i < 5; i++) {
-      const cx = 170 + (i - j) * 28, cy = 50 + (i + j) * 14;
-      const on = n++ < lit;
-      for (let y = -12; y <= 12; y++) {
-        const w = 24 - Math.abs(y) * 2;
-        px(g, cx - w, cy + y, on ? 'neigeM' : 'nuit2', w * 2, 1);
-      }
-      if (on) px(g, cx - 1, cy - 2, 'ocre', 3, 3);
+    // Paris vu du ballon : les îlots, la Seine, l'ombre du ballon qui glisse
+    for (let j = 0; j < 9; j++) for (let i = 0; i < 16; i++) {
+      const water = j === 5;
+      px(g, 8 + i * 19, 8 + j * 19, water ? 'nuit2' : hash(i, j, 9) < 0.35 ? 'neigeM' : 'pierreL', 18, 18);
     }
-    // l'Aigle : un bicorne au-dessus du plan
-    px(g, 20, 20, 'neige', 26, 6); px(g, 26, 14, 'neige', 14, 6);
-    pierre(g, 34, 170, 'play', t); notes(g, 42, 146, t);
+    const bx = (t * 20) % 340 - 20;
+    for (let dy = -6; dy <= 6; dy++) { const w = Math.round(Math.sqrt(36 - dy * dy)); px(g, bx - w, 100 + dy, 'nuit', w * 2, 1); }
   },
-  corps(g, t) {
-    night(g, t); facades(g, 90, 11); groundBand(g, 90);
-    // éclaireurs : une ligne rapide qui file en avant
-    for (let k = 0; k < 10; k++) rat(g, ((k * 18 + t * 90) % 360) - 20, 104, t * 2, 1, k);
-    // grenadiers : un carré serré qui avance au pas
-    for (let k = 0; k < 30; k++) rat(g, 120 + (k % 6) * 9 + Math.sin(t * 3) * 2, 132 + Math.floor(k / 6) * 5, t * 0.6, 1, k);
-    // sapeurs : ils creusent au pied d'un mur, la terre vole
-    px(g, 240, 70, 'pierreL', 60, 90);
-    for (let k = 0; k < 8; k++) rat(g, 236 - (k % 3) * 8, 156 - Math.floor(k / 3) * 4, t, 1, k, 'rear');
-    for (let k = 0; k < 6; k++) { const p = (t * 1.3 + k / 6) % 1; px(g, 238 - p * 20, 150 - Math.sin(p * 3.14) * 18, 'neigeO', 2, 2); }
-    pierre(g, 60, 150, 'play', t); notes(g, 68, 126, t);
-  },
-  waterloo(g, t) {
-    px(g, 0, 0, 'nuit', W, H);
-    // la voûte d'un égout
-    for (let x = 0; x < W; x++) { const y = 40 - Math.sqrt(Math.max(0, 1 - ((x - 160) / 170) ** 2)) * 30; px(g, x, y, 'pierreS', 1, 3); }
-    px(g, 0, 96, 'neigeO', W, 60);                // le radier, où l'on se bat
-    px(g, 0, 156, 'nuit2', W, 24); px(g, 0, 160, 'ardoise', W, 6); // l'eau gelée au fond
-    // deux nuées qui se jettent l'une sur l'autre ; au contact, ça saute
-    const meet = 160 + Math.sin(t * 0.7) * 20;
-    for (let k = 0; k < 45; k++) {
-      const x = meet - 8 - hash(k, 1) * 140 + Math.sin(t * 3 + k) * 3, y = 120 + hash(k, 2) * 24;
-      const jump = x > meet - 20 && hash(k, 3) < 0.3 ? Math.abs(Math.sin(t * 6 + k)) * 8 : 0;
-      rat(g, x, y - jump, t, 1, k, jump > 2 ? 'jump' : null);
-    }
-    for (let k = 0; k < 45; k++) {
-      const x = meet + 8 + hash(k, 4) * 140 + Math.sin(t * 3 + k) * 3, y = 120 + hash(k, 5) * 24;
-      paleRat(g, x, y, t, -1, k);
-    }
-  },
-  faim(g, t) {
-    night(g, t); facades(g, 100, 13); groundBand(g, 100);
-    // un sac de grain éventré, qui se vide
-    const left = 1 - ((t * 0.12) % 1);
-    const sh = Math.round(10 + 20 * left);
-    px(g, 150, 150 - sh, 'neige', 30, sh); px(g, 172, 150 - sh, 'neigeO', 8, sh); px(g, 152, 150 - sh - 3, 'neigeO', 26, 3);
-    for (let k = 0; k < 20; k++) px(g, 140 + hash(k, 1) * 50, 150 + hash(k, 2) * 8, 'neige');
-    swarm(g, 165, 150, 50, t, 50, 12, 7);
-    // la jauge de faim de l'armée
-    px(g, 20, 20, 'nuit2', 100, 6); px(g, 20, 20, 'neige', Math.round(100 * left), 6);
-    pierre(g, 250, 150, 'stand', t);
-  },
-  egouts(g, t) {
-    night(g, t);
-    facades(g, 60, 15);
-    px(g, 0, 60, 'neigeM', W, 18);                // la rue
-    px(g, 0, 78, 'nuit2', W, H - 78);             // la terre
-    px(g, 0, 118, 'neigeO', W, 34);               // la galerie
-    px(g, 0, 116, 'pierreS', W, 2); px(g, 0, 152, 'pierreS', W, 2);
-    // deux bouches d'égout reliées par un puits
-    for (const gx of [60, 250]) { px(g, gx, 76, 'nuit', 14, 2); px(g, gx + 4, 78, 'nuit', 6, 40); }
-    // les rats descendent, filent sous la ville, ressortent plus loin
-    for (let k = 0; k < 40; k++) {
-      const p = (t * 0.25 + k / 40) % 1;
-      let x, y;
-      if (p < 0.15) { x = 66; y = 78 + p / 0.15 * 66; }
-      else if (p < 0.85) { x = 66 + (p - 0.15) / 0.7 * 190; y = 146; }
-      else { x = 256; y = 146 - (p - 0.85) / 0.15 * 70; }
-      rat(g, x + Math.sin(k) * 3, y, t, 1, k, p < 0.15 ? 'down' : p >= 0.85 ? 'up' : null);
-    }
-    pierre(g, 30, 74, 'play', t); notes(g, 38, 50, t);
-  },
-  peur(g, t) {
-    night(g, t);
-    const front = (t * 30) % (W + 100) - 50;
-    // les fenêtres s'éteignent quand la nuée passe dessous
-    facades(g, 110, 17, (x, f) => x > front + 20 && hash(x, f, 3) < 0.6);
-    groundBand(g, 110);
-    swarm(g, front, 150, 40, t, 60, 14);
-    pierre(g, front + 10, 150, 'play', t);
-    // un gendarme et sa lanterne attendent au coin
-    px(g, 290, 124, 'nuit', 8, 26); px(g, 288, 120, 'nuit', 12, 5); px(g, 299, 134, 'ocre', 3, 4);
+  marmite(g, t) {
+    night(g, t); facades(g, 110, 33); groundBand(g, 110);
+    // la marmite de la cantine, sa vapeur ; la queue des affamés ; la carte de rationnement
+    px(g, 140, 140, 'nuit', 30, 18); px(g, 136, 138, 'nuit', 38, 3);
+    for (let k = 0; k < 6; k++) { const p = (t * 0.5 + k / 6) % 1; px(g, 148 + Math.sin(p * 9 + k) * 6, 134 - p * 40, p > 0.6 ? 'neigeO' : 'neigeM', 3, 3); }
+    for (let k = 0; k < 6; k++) { px(g, 190 + k * 18, 128, 'nuit', 8, 26); px(g, 191 + k * 18, 122, 'nuit', 6, 6); }
+    px(g, 30, 30, 'neige', 60, 36); for (let l = 0; l < 6; l++) px(g, 34, 36 + l * 5, l % 2 ? 'neigeO' : 'nuit2', 52, 2);
+    swarm(g, 100, 162, 10, t, 30, 5);
   },
   partitions(g, t) {
     night(g, t); groundBand(g, 70);
-    // trois ordres, trois formes : un cercle, une ligne, une flèche
     const phase = Math.floor(t / 3) % 3, k0 = (t % 3) / 3;
     const ease = Math.min(1, k0 * 2.5);
     const shape = (s, k, n) => {
@@ -229,61 +215,192 @@ const ART = {
       const [x0, y0] = shape((phase + 2) % 3, k, n), [x1, y1] = shape(phase, k, n);
       rat(g, x0 + (x1 - x0) * ease, y0 + (y1 - y0) * ease, t, x1 >= x0 ? 1 : -1, k);
     }
-    // la phrase jouée : trois notes en haut
     for (let k = 0; k < 3; k++) drawNote(g, 130 + k * 22, 20 + ((phase + k) % 3) * 6, (phase + k) % 2);
     pierre(g, 160, 128, 'play', t);
+  },
+  // ─ Bâtiments ─
+  hotelville(g, t) {
+    night(g, t);
+    // l'Hôtel de Ville : un long palais, ses pavillons, le beffroi ; le feu aux fenêtres
+    px(g, 30, 60, 'pierreL', 260, 90); px(g, 30, 50, 'ardoise', 50, 10); px(g, 240, 50, 'ardoise', 50, 10);
+    px(g, 145, 26, 'pierreL', 30, 34); px(g, 150, 14, 'ardoise', 20, 12);
+    for (let f = 0; f < 4; f++) for (let c = 0; c < 18; c++) {
+      const fire = hash(c, f, Math.floor(t * 8)) < 0.5;
+      px(g, 40 + c * 14, 68 + f * 20, fire ? 'ocre' : 'nuit', 6, 12);
+    }
+    for (let k = 0; k < 30; k++) { const p = (t * 0.4 + k / 30) % 1; px(g, 40 + hash(k, 1) * 240, 60 - p * 60, p > 0.5 ? 'neigeO' : 'neigeM', 4, 4); }
+    groundBand(g, 150);
+    swarm(g, 160, 168, 20, t, 120, 6);
+  },
+  halles(g, t) {
+    night(g, t); groundBand(g, 130);
+    // les pavillons de fer et de verre, éclairés de l'intérieur
+    for (const x of [20, 120, 220]) {
+      px(g, x, 60, 'nuit', 80, 70);
+      for (let c = 0; c < 80; c += 8) px(g, x + c, 70, 'ocre', 6, 50);
+      for (let c = 0; c < 80; c += 8) px(g, x + c, 60, 'pierreS', 2, 70);
+      for (let y = 0; y < 14; y++) px(g, x + y * 3, 46 + y, 'neige', 80 - y * 6, 1);
+    }
+    swarm(g, 160, 150, 40, t, 140, 12);
+  },
+  vendome(g, t) {
+    night(g, t); facades(g, 140, 35); groundBand(g, 140);
+    // la colonne s'abat, l'Empereur en tête
+    const a = Math.min(1.45, ((t * 0.4) % 2.4) * 1.0);
+    g.save(); g.translate(160, 150); g.rotate(-a);
+    px(g, -6, -120, 'pierreL', 12, 120); for (let y = -120; y < 0; y += 10) px(g, -6, y, 'pierreS', 12, 2);
+    px(g, -3, -132, 'nuit', 6, 12); g.restore();
+    px(g, 140, 150, 'pierre', 40, 10);
+    swarm(g, 230, 162, 24, t, 60, 8);
+  },
+  couvert(g, t) {
+    px(g, 0, 0, 'nuit', W, H);
+    // un passage couvert : la verrière, les boutiques éclairées des deux côtés, les dalles
+    for (let y = 0; y < 40; y++) px(g, 160 - (40 - y) * 4, y, y % 6 === 0 ? 'pierreS' : 'neigeO', (40 - y) * 8, 1);
+    for (let k = 0; k < 5; k++) {
+      const d = k * 26, w = 40 - k * 6;
+      px(g, 20 + d * 0.9, 50 + k * 4, 'ocre', w, 70 - k * 10); px(g, 300 - d * 0.9 - w, 50 + k * 4, 'ocre', w, 70 - k * 10);
+      px(g, 20 + d * 0.9, 46 + k * 4, 'nuit2', w, 4); px(g, 300 - d * 0.9 - w, 46 + k * 4, 'nuit2', w, 4);
+    }
+    for (let y = 120; y < H; y += 6) px(g, 0, y, 'pierreL', W, 3);
+    swarm(g, 160, 160, 20, t, 60, 10);
+    pierre(g, 160, 150, 'walk', t);
+  },
+  // ─ Urbanisme ─
+  egouts(g, t) {
+    night(g, t);
+    facades(g, 60, 15);
+    px(g, 0, 60, 'neigeM', W, 18);
+    px(g, 0, 78, 'nuit2', W, H - 78);
+    px(g, 0, 118, 'neigeO', W, 34);
+    px(g, 0, 116, 'pierreS', W, 2); px(g, 0, 152, 'pierreS', W, 2);
+    for (const gx of [60, 250]) { px(g, gx, 76, 'nuit', 14, 2); px(g, gx + 4, 78, 'nuit', 6, 40); }
+    for (let k = 0; k < 40; k++) {
+      const p = (t * 0.25 + k / 40) % 1;
+      let x, y;
+      if (p < 0.15) { x = 66; y = 78 + p / 0.15 * 66; }
+      else if (p < 0.85) { x = 66 + (p - 0.15) / 0.7 * 190; y = 146; }
+      else { x = 256; y = 146 - (p - 0.85) / 0.15 * 70; }
+      rat(g, x + Math.sin(k) * 3, y, t, 1, k, p < 0.15 ? 'down' : p >= 0.85 ? 'up' : null);
+    }
+    pierre(g, 30, 74, 'play', t); notes(g, 38, 50, t);
+  },
+  toits(g, t) {
+    night(g, t);
+    // une mer de toits de zinc, de cheminées ; Pierre marche sur le faîte
+    for (let k = 0; k < 6; k++) {
+      const x = k * 60 - 20, y = 90 + (k % 2) * 12;
+      for (let r = 0; r < 30; r++) px(g, x + r, y + 30 - r, 'neigeM', 60 - r * 2 > 0 ? 60 : 0, 1);
+      px(g, x, y + 30, 'pierreL', 64, 60);
+      for (let c = 0; c < 3; c++) { px(g, x + 8 + c * 18, y - 4, 'pierreL', 6, 14); px(g, x + 8 + c * 18, y - 5, 'neige', 6, 1); }
+    }
+    const wx = (t * 25) % 360 - 20;
+    pierre(g, wx, 96, 'walk', t);
+    for (let k = 0; k < 10; k++) rat(g, wx - 16 - k * 9, 98, t, 1, k);
+  },
+  percee(g, t) {
+    px(g, 0, 0, 'nuit', W, H);
+    // vu de dessus : le vieux Paris en lacis, la percée droite du boulevard
+    for (let j = 0; j < 18; j++) for (let i = 0; i < 32; i++) {
+      const boul = Math.abs(j - 9 - (i - 16) * 0.2) < 1.2;
+      const lane = hash(i, j, 3) < 0.28;
+      px(g, i * 10, j * 10, boul ? 'neigeM' : lane ? 'neigeO' : 'pierreL', 9, 9);
+    }
+    const p = (t * 0.1) % 1;
+    for (let k = 0; k < 20; k++) { const q = (p + k / 20) % 1; rat(g, q * 320, 92 + (q * 320 - 160) * 0.2, t, 1, k); }
+  },
+  seine(g, t) {
+    night(g, t); facades(g, 72, 7);
+    px(g, 0, 72, 'neigeO', W, 14);
+    px(g, 0, 86, 'neigeO', W, H - 86);
+    for (let k = 0; k < 40; k++) px(g, hash(k, 9) * W, 90 + hash(k, 10) * 80, 'neigeM', 8 + hash(k, 11) * 20, 1);
+    const n = 60;
+    for (let k = 0; k < n; k++) {
+      const x = ((k * 9 + t * 22) % (W + 60)) - 30, y = 128 + Math.sin(k * 1.7) * 8;
+      rat(g, x, y, t, 1, k);
+    }
+    const c = (t * 0.2) % 1;
+    let x = 200, y = 100;
+    for (let s = 0; s < c * 90; s++) { x += hash(s, 1) * 3 - 0.6; y += hash(s, 2) * 2 - 0.5; px(g, x, y, 'nuit', 2, 1); if (s % 9 === 0) px(g, x, y + 1, 'nuit', 1, 3); }
+    pierre(g, 40, 84, 'play', t); notes(g, 48, 60, t);
   },
 };
 
 // ─── Les sujets et leurs variantes (A : le jeu d'aujourd'hui) ───
 const NOW = {
-  title: 'Aujourd\'hui : on erre, l\'armée grossit', pitch: 'Pierre marche dans le quartier, joue, et les rats sortent des égouts pour le suivre. Pas encore de but : c\'est la base sur laquelle bâtir.',
+  title: 'Aujourd\'hui : l\'hiver du siège, on erre', pitch: 'Paris, janvier 1871. Pierre marche dans les rues, au bord de la Seine, joue, et les rats sortent des égouts pour le suivre. Pas encore de but : c\'est la base sur laquelle bâtir.',
   art: 'now', tag: 'actuelle',
-  cols: ['Une ambiance : la nuit, la neige, Paris.', 'Marcher, jouer, regarder la nuée grossir et grouiller.', 'Rien : c\'est l\'état du jeu (v1.3.0).'],
+  cols: ['Une ambiance : la nuit, la neige, Paris assiégé ; le monde à hauteur d\'enfant.', 'Marcher, jouer, regarder la nuée grossir et grouiller.', 'Rien : c\'est l\'état du jeu (v1.4.0).'],
 };
 const TOPICS = [
   {
-    id: 'hamelin', icon: 'ti-book', title: 'Le conte de Hamelin',
+    id: 'scenarios', icon: 'ti-flag', title: 'Scénarios : la Commune',
     variants: [
       NOW,
-      { title: 'Le marché du préfet', art: 'prefet', pitch: 'Le préfet de police promet une bourse à qui délivrera Paris des rats. Pierre les mène hors de la ville… et le préfet refuse de payer. On rejoue la fin du conte : que fait Pierre de sa colère ?',
-        cols: ['Un récit en trois actes, fidèle au conte : la promesse, l\'exode des rats, la trahison. Une fin morale, sombre, que le joueur choisit.', 'Un objectif clair (rassembler les rats du quartier, puis les conduire jusqu\'à la Seine) et un choix final.', 'Des personnages (le préfet), quelques dialogues, une fin. Peu de nouvelles mécaniques.'] },
-      { title: 'La Seine gelée', art: 'seine', pitch: 'Pour se débarrasser des rats, il faut les conduire sur la Seine gelée. Plus l\'armée est nombreuse, plus la glace craque : il faut l\'étirer en file, ne jamais la laisser s\'agglutiner.',
-        cols: ['L\'image du conte (les rats noyés dans la Weser) devient une scène de Paris en 1815 : l\'hiver où la Seine a gelé.', 'Un niveau d\'adresse : diriger la forme de la nuée, pas seulement sa direction. La glace se fend sous le poids.', 'Une nouvelle zone (les quais, le fleuve) et un poids de la nuée par case. Simulation déjà prête.'] },
-      { title: 'Les enfants de Paris', art: 'enfants', pitch: 'Un autre air attire les gamins des rues. Une seconde troupe, humaine, plus lente, qu\'il faut nourrir, réchauffer et protéger… des rats eux-mêmes.',
-        cols: ['La part la plus inquiétante du conte, retournée : Pierre n\'enlève pas les enfants, il les sauve de l\'hiver. Ou pas.', 'Deux troupes à mener avec deux airs ; tension entre les deux (les rats effraient les enfants).', 'Des enfants (sprites, une petite simulation de file), un deuxième air.'] },
+      { title: 'Le siège', art: 'siege', pitch: 'Janvier 1871 : la ville affamée mange ses rats. Les chasseurs posent des pièges, les marchands vendent le rat au poids. Pierre doit cacher son armée, ou la nourrir avant qu\'on ne la mange.',
+        cols: ['Le vrai Paris du siège : boucheries de rats, éléphants du Jardin des plantes mangés, la peur de la faim. Pierre protège ce que tous veulent manger.', 'Furtivité : éviter chasseurs et pièges, passer par les égouts ; chaque rat perdu est un rat mangé.', 'Des chasseurs (petite IA), des pièges, des cachettes. La nuée et les égouts servent déjà.'] },
+      { title: 'Le 18 mars : les canons de Montmartre', art: 'canons', pitch: 'À l\'aube, l\'armée vient reprendre les canons de la butte. Les femmes de Montmartre s\'interposent… et les rats de Pierre font cabrer les chevaux. La Commune commence.',
+        cols: ['Le premier jour de la Commune, vu par un enfant : une foule, des soldats qui fraternisent, des canons qu\'on garde.', 'Un niveau de foule : diriger la nuée contre les attelages, sans blesser personne ; un chrono jusqu\'au lever du jour.', 'Une butte (relief), des canons, des chevaux, une foule. Coût moyen.'] },
+      { title: 'La Semaine sanglante', art: 'semaine', pitch: 'Mai 1871 : les Versaillais reprennent Paris rue par rue. Barricades, incendies. Pierre guide des fugitifs par les égouts, ses rats en éclaireurs.',
+        cols: ['La fin tragique de la Commune, à hauteur d\'enfant : se cacher, sauver qui on peut. Une fin grave.', 'Escorte et repérage : la nuée part devant, signale les patrouilles, ouvre les passages.', 'Des barricades, des incendies, des fugitifs à guider. Le plus ambitieux.'] },
+      { title: 'Le joueur de flûte de la Commune', art: 'hamelin', pitch: 'Le conte de Hamelin rejoué : la Commune promet du pain à qui délivrera les quartiers des rats. Pierre les mène hors de Paris… et la promesse n\'est pas tenue. Que fait-il de sa colère ?',
+        cols: ['Le conte, fidèle et sombre : la promesse, l\'exode, la trahison, puis un choix.', 'Rassembler les rats de chaque quartier, puis les conduire hors des murs (la Seine gelée ?).', 'Des personnages, quelques dialogues, une fin. Peu de nouvelles mécaniques.'] },
     ],
   },
   {
-    id: 'empire', icon: 'ti-crown', title: 'L\'Empereur des rats',
+    id: 'personnages', icon: 'ti-users', title: 'Personnages secondaires',
     variants: [
       NOW,
-      { title: 'Les Cent-Jours', art: 'centjours', pitch: 'Mars 1815 : l\'Empereur revient de l\'île d\'Elbe et rallie la France sans tirer un coup de feu. Pierre fait de même avec Paris : chaque égout gagné rallie un quartier, jusqu\'aux Tuileries.',
-        cols: ['L\'année même du jeu. Pierre, enfant de la Grande Armée (un père mort en Russie ?), rejoue l\'épopée à sa façon.', 'Une carte de Paris en quartiers à rallier ; chaque quartier a ses rats, ses dangers, sa bouche d\'égout maîtresse.', 'Plusieurs quartiers générés (le générateur sait faire), une carte, une progression.'] },
-      { title: 'Les corps d\'armée', art: 'corps', pitch: 'La nuée se divise en corps : éclaireurs rapides, grenadiers serrés qui renversent tout, sapeurs qui creusent sous les murs. Chaque corps répond à son air.',
-        cols: ['Pierre devient un petit général : on parle de régiments, de colonnes, de manœuvres.', 'De la stratégie légère : envoyer les éclaireurs en avant, les sapeurs ouvrir un passage, garder les grenadiers.', 'Des groupes dans la simulation (un but par groupe), des comportements propres. Coût moyen.'] },
-      { title: 'Waterloo sous les pavés', art: 'waterloo', pitch: 'Une autre colonie tient les égouts : les rats gris du Roi. Bataille de masses dans les galeries, où l\'on peut tout perdre en une charge.',
-        cols: ['Juin 1815 : Waterloo. Une défaite possible, un exil (Sainte-Hélène : une île de la Seine ?).', 'Des affrontements de foules : effectifs, moral, terrain (galeries étroites). Perdre fait partie du jeu.', 'Une seconde nuée et des règles de combat simples. La simulation tient déjà des milliers de rats.'] },
+      { title: 'Louise, l\'institutrice', art: 'louise', pitch: 'Inspirée de Louise Michel : elle apprend à Pierre à lire les affiches, soigne sur les barricades, et lui confie des messages à porter là où les adultes ne passent pas.',
+        cols: ['Une figure de la Commune, généreuse et têtue, qui prend Pierre sous son aile.', 'Une donneuse de quêtes : lire une affiche, porter un pli, trouver un enfant perdu.', 'Un personnage, des dialogues, des affiches lisibles.'] },
+      { title: 'Victor, le gamin des rues', art: 'gavroche', pitch: 'Un Gavroche de douze ans, voleur de pain, rapide comme un rat. Rival au début (il chasse les rats pour les vendre), allié ensuite.',
+        cols: ['Un double de Pierre, plus dur, plus drôle. Leur amitié est le cœur du récit.', 'Des courses-poursuites dans les ruelles ; plus tard, il ouvre des portes que Pierre ne sait pas ouvrir.', 'Un personnage qui court, une petite IA de poursuite.'] },
+      { title: 'Le marchand de rats', art: 'marchand', pitch: 'Il achète les rats au poids et les revend aux affamés. Ses cages s\'empilent derrière l\'étal. L\'adversaire du siège : libérer ses prisonniers grossit l\'armée.',
+        cols: ['Un antagoniste humain, pas méchant : la faim le pousse. On peut le convaincre, ou le ruiner.', 'Des cages à ouvrir sans se faire voir ; la nuée libérée rejoint Pierre d\'un coup.', 'Un étal, des cages, un personnage qui surveille.'] },
+      { title: 'L\'aéronaute', art: 'aeronaute', pitch: 'Pendant le siège, des ballons montés quittent Paris avec le courrier et des pigeons. L\'aéronaute cherche un mousse… et des rats pour ronger les cordes d\'un rival ?',
+        cols: ['La part de rêve du siège : s\'envoler au-dessus des lignes prussiennes.', 'Une mission spéciale qui mène à la vue de dessus de Paris (le plan de l\'atelier, en jeu).', 'Un ballon, une scène en l\'air, la carte de Paris vue d\'en haut.'] },
     ],
   },
   {
-    id: 'paris', icon: 'ti-snowflake', title: 'Paris, hiver 1815',
+    id: 'objets', icon: 'ti-backpack', title: 'Objets',
     variants: [
       NOW,
-      { title: 'La faim', art: 'faim', pitch: 'L\'armée mange. Halles, greniers, boulangeries : sans grain, les rats désertent. Une seule ressource, qui oblige à bouger et à choisir ses rues.',
-        cols: ['L\'hiver de misère : la ville a faim, les rats aussi. Voler du grain, c\'est prendre aux Parisiens.', 'Une jauge, des lieux à piller, des rats qui s\'en vont si on traîne. Simple et lisible.', 'Des lieux de nourriture dans le quartier (l\'atelier peut les placer), une jauge.'] },
-      { title: 'Les égouts', art: 'egouts', pitch: 'Un second niveau sous la ville : galeries, puits, raccourcis. L\'armée y passe et ressort trois rues plus loin ; Pierre, lui, doit faire le tour.',
-        cols: ['Le Paris souterrain, le royaume des rats. Pierre n\'y est pas chez lui.', 'Un réseau à maîtriser : envoyer la nuée par-dessous, la rappeler ailleurs ; Pierre et son armée séparés.', 'Une carte des égouts (une seconde grille), un rendu en coupe ou un calque. Coût moyen à fort.'] },
-      { title: 'La peur', art: 'peur', pitch: 'La ville réagit : volets qui claquent, lumières qui s\'éteignent, gendarmes à lanterne, chats. Une rumeur qui enfle avec la taille de l\'armée.',
-        cols: ['Pierre devient une légende noire de Paris. Les Parisiens le craignent, puis le chassent.', 'Furtivité : rester petit pour passer, grossir pour s\'imposer. Des patrouilles à éviter ou à submerger.', 'Des fenêtres qui changent d\'état, des gendarmes (une petite IA), une jauge de rumeur.'] },
+      { title: 'Les barricades', art: 'barricades', pitch: 'Pavés, tonneaux, charrettes renversées : les barricades ferment les rues. Pierre passe par-dessous avec les rats, ou les aide à en bâtir… ou à en défaire.',
+        cols: ['Le paysage de la Commune : la rue qui se ferme, se défend, s\'ouvre.', 'Des obstacles qui changent la carte ; la nuée peut creuser sous les pavés.', 'Un objet de mobilier qui bloque une rue, posé dans l\'atelier.'] },
+      { title: 'Le ballon monté', art: 'ballon', pitch: 'Un ballon qui s\'élève au-dessus de Paris : la ville vue d\'en haut, ses îlots, la Seine. Un moment de calme, et une carte.',
+        cols: ['Le seul moment où l\'enfant voit la ville entière : une respiration.', 'La carte de Paris : choisir le prochain quartier, voir où sont les rats.', 'La vue de dessus de l\'atelier, en jeu ; un petit vol.'] },
+      { title: 'La marmite et la carte de rationnement', art: 'marmite', pitch: 'La cantine municipale, la queue des affamés, la carte de rationnement. Ce que mange Pierre, ce que mangent les rats : une économie de la faim.',
+        cols: ['La faim du siège, concrète : une louche de soupe, un morceau de pain noir.', 'Une ressource : nourrir l\'armée ou soi-même ; sans pain, des rats désertent.', 'Une jauge, des cantines dans le quartier, une carte à remplir.'] },
+      { title: 'Les airs de la flûte', art: 'partitions', pitch: 'Chaque petit air de trois notes est un ordre : venir, attendre, encercler, foncer, se disperser. On les joue au clavier ou au pouce, en rythme.',
+        cols: ['La flûte n\'est plus un simple appel : c\'est la langue de Pierre avec ses rats.', 'Composer des ordres en rythme ; la nuée prend des formes. Se marie avec toutes les idées.', 'Un lecteur de séquences, des buts de formation dans la simulation.'] },
     ],
   },
   {
-    id: 'musique', icon: 'ti-music', title: 'Les airs de la flûte',
+    id: 'batiments', icon: 'ti-building', title: 'Bâtiments',
+    variants: [
+      { ...NOW, title: 'Aujourd\'hui : immeubles, maisons, Notre-Dame', pitch: 'Le générateur fait déjà des immeubles haussmanniens (boutiques, portes cochères, cafés, balcons au 2e et au 5e), de vieilles maisons parisiennes, Notre-Dame sur l\'île de la Cité, des passages.' },
+      { title: 'L\'Hôtel de Ville en flammes', art: 'hotelville', pitch: 'Le 24 mai 1871, l\'Hôtel de Ville brûle. Un monument immense, ses pavillons, son beffroi, le feu à toutes les fenêtres : le décor de la fin.',
+        cols: ['L\'image la plus forte de la Semaine sanglante, vue d\'en bas.', 'Un lieu à traverser pendant l\'incendie, ou à fuir.', 'Un monument sur plusieurs cases (comme Notre-Dame), un feu animé.'] },
+      { title: 'Les Halles de Baltard', art: 'halles', pitch: 'Les pavillons de fer et de verre du « ventre de Paris », éclairés la nuit. Pendant le siège, presque vides ; pour les rats, un paradis.',
+        cols: ['Le marché de Zola, en hiver de famine.', 'Un lieu de nourriture, plein de cachettes, de rats rivaux ?', 'Un bâtiment de verre et de fonte : un nouveau style au générateur.'] },
+      { title: 'La colonne Vendôme abattue', art: 'vendome', pitch: 'Le 16 mai 1871, la Commune abat la colonne de l\'Empereur sur un lit de fumier. La foule regarde ; les rats aussi.',
+        cols: ['Un événement réel, spectaculaire, symbolique.', 'Une scène : un attroupement, un fracas, une course.', 'Une colonne, une animation de chute, une foule.'] },
+      { title: 'Le passage couvert', art: 'couvert', pitch: 'Plus qu\'une arche : une galerie sous verrière, bordée de boutiques éclairées. Un abri contre la neige, un raccourci, un repaire.',
+        cols: ['Le Paris des passages (Choiseul, Panoramas) : la ville a des intérieurs.', 'Un intérieur à traverser, chaud et lumineux, qui coupe un îlot.', 'Un nouveau rendu : intérieur vu en coupe. Coût moyen.'] },
+    ],
+  },
+  {
+    id: 'urbanisme', icon: 'ti-map', title: 'Urbanisme',
     variants: [
       NOW,
-      { title: 'Partitions', art: 'partitions', pitch: 'Chaque petit air de trois notes est un ordre : venir, attendre, encercler, foncer, se disperser. On les joue au clavier ou au pouce, en rythme.',
-        cols: ['La flûte n\'est plus un simple appel : c\'est la langue de Pierre avec ses rats.', 'Composer des ordres en rythme (comme Patapon) ; la nuée prend des formes. Se marie avec toutes les autres idées.', 'Un lecteur de séquences, des buts de formation dans la simulation. Coût moyen, gros gain.'] },
+      { title: 'Les égouts de Belgrand', art: 'egouts', pitch: 'Sous la ville neuve, le réseau d\'égouts de Belgrand : galeries, puits, raccourcis. La nuée y passe et ressort trois rues plus loin ; Pierre, lui, fait le tour.',
+        cols: ['Le Paris souterrain, le royaume des rats ; un refuge pendant la Semaine sanglante.', 'Un réseau à maîtriser : envoyer la nuée dessous, la rappeler ailleurs.', 'Une seconde grille (les égouts), un rendu en coupe ou un calque. Coût moyen à fort.'] },
+      { title: 'Les toits de Paris', art: 'toits', pitch: 'Par une lucarne, Pierre monte sur les toits : le zinc, les cheminées, les rues en contrebas. Un autre chemin, loin des patrouilles.',
+        cols: ['L\'enfant sur les toits : le seul endroit où l\'on voit loin.', 'Un deuxième niveau de déplacement, au-dessus des barricades.', 'Les faîtages comme chemins ; la nuit des étages s\'ouvre quand on y monte.'] },
+      { title: 'Percée et vieux Paris', art: 'percee', pitch: 'Le boulevard haussmannien tranche le vieux quartier : d\'un côté la ligne droite, éclairée, surveillée ; de l\'autre le lacis de ruelles où l\'on se cache.',
+        cols: ['Le Paris de 1871 est un chantier : la ville neuve et l\'ancienne se touchent.', 'Deux façons de passer : vite et à découvert, ou lentement et caché.', 'Le générateur sait déjà faire des maisons anciennes ; ajouter un boulevard droit et large.'] },
+      { title: 'La Seine gelée', art: 'seine', pitch: 'L\'hiver 1870-1871 est terrible : la Seine charrie des glaçons. Faire passer l\'armée sur la glace, qui craque si la nuée s\'agglutine.',
+        cols: ['La Seine est déjà là, avec ses quais et ses ponts : l\'hiver la change en piège.', 'Un niveau d\'adresse : étirer la nuée en file, ne jamais la laisser se masser.', 'De la glace praticable sur certaines cases, un poids de la nuée par case.'] },
     ],
   },
 ];

@@ -4,7 +4,7 @@
    o ocreS, O ocre, s neigeM, q rose.
    Dans le jeu, Pierre n'est qu'une silhouette (option silhouette : tout en
    noir) ; les couleurs servent à la planche d'échelle. */
-import { PAL } from './palette.js?v=1.3.0';
+import { PAL } from './palette.js?v=1.4.0';
 
 const KEYS = { n: 'nuit', t: 'nuit2', b: 'brun', c: 'brunC', p: 'peau', r: 'rouge', R: 'rougeS', o: 'ocreS', O: 'ocre', s: 'neigeM', w: 'neige', q: 'rose', a: 'ardoise' };
 

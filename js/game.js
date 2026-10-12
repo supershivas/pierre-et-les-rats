@@ -5,25 +5,25 @@
    Coordonnées monde en pixels du jeu (1 px = 5 cm, une case = 60 px). La
    vue est rendue en pixels du jeu dans un petit canvas, agrandi d'un
    facteur entier (pixels nets). */
-import { PAL } from './palette.js?v=1.3.0';
-import { CELL } from './scale.js?v=1.3.0';
-import { makeScene } from './scene.js?v=1.3.0';
-import { drawPierre, drawNote } from './sprites.js?v=1.3.0';
-import { createSwarm } from './swarm.js?v=1.3.0';
-import { PROP_TYPES, propSprite } from './props.js?v=1.3.0';
-import { hash } from './city.js?v=1.3.0';
+import { PAL } from './palette.js?v=1.4.0';
+import { CELL } from './scale.js?v=1.4.0';
+import { makeScene } from './scene.js?v=1.4.0';
+import { drawPierre, drawNote } from './sprites.js?v=1.4.0';
+import { createSwarm } from './swarm.js?v=1.4.0';
+import { PROP_TYPES, propSprite } from './props.js?v=1.4.0';
+import { hash } from './city.js?v=1.4.0';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const PIERRE_R = 5;
 const MAX_RATS = 4000;                // au-delà, l'armée est comptée mais pas toute simulée
 const TRACE_LIFE = 150;               // s : la neige recouvre les traces
 const TRACE_CAP = 60000;              // traces gardées au plus (tampon circulaire)
-// Hauteur visée de la vue, en pixels du jeu : rapprochée quand Pierre est
-// seul, de plus en plus large à mesure que l'armée grossit (voir viewHeight)
-const VIEW_NEAR = 250, VIEW_FAR = 640, ARMY_NEAR = 30, ARMY_FAR = 3000;
+// Hauteur de la vue, en pixels du jeu : le monde à hauteur d'enfant, toujours
+// de près (environ 12 m de haut), quelle que soit la taille de l'armée
+const VIEW_H = 250;
 
 export function createGame({ canvas, city, save = null, onRats = () => {}, onMessage = () => {}, testRats = 0 }) {
-  const scene = makeScene(city);
+  const scene = makeScene(city, { night: true });
   const occlusion = scene.depthMap();
   scene.buildDecor();
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -42,7 +42,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
 
   // ─── Le sol et les obstacles ───
   function solid(wx, wy) {
-    return city.at(Math.floor(wx / CELL), Math.floor(wy / CELL)) !== 0;
+    return !city.walk(Math.floor(wx / CELL), Math.floor(wy / CELL));
   }
   function blocked(x, y, r) {
     if (solid(x - r, y - r) || solid(x + r, y - r) || solid(x - r, y + r) || solid(x + r, y + r)) return true;
@@ -56,7 +56,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
   function nearestStreet(wx, wy) {
     let best = null, bd = Infinity;
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
-      if (city.at(i, j) !== 0) continue;
+      if (!city.walk(i, j)) continue;
       const d = ((i + 0.5) * CELL - wx) ** 2 + ((j + 0.5) * CELL - wy) ** 2;
       if (d < bd) { bd = d; best = { x: (i + 0.5) * CELL, y: (j + 0.5) * CELL }; }
     }
@@ -97,12 +97,12 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
       1: 'Un premier rat sort de l\'égout.',
       5: 'Cinq rats. Ils ont froid, eux aussi.',
       10: 'Dix rats suivent Pierre.',
-      25: 'Vingt-cinq. Les passants se signent.',
+      25: 'Vingt-cinq. Les affamés les regardent passer.',
       50: 'Cinquante rats : une petite armée.',
       100: 'Cent rats. Paris commence à parler de Pierre.',
       200: 'Deux cents rats dans la neige.',
       500: 'Cinq cents. La nuit leur appartient.',
-      1000: 'Mille rats. L\'Empereur en avait moins à Waterloo.',
+      1000: 'Mille rats. Plus que toute la Garde nationale.',
       2000: 'Deux mille. La neige est noire de rats.',
     }[n];
   }
@@ -125,7 +125,8 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     if (sx < viewL || sx > viewR || sy < viewT || sy > viewB) return;
     const at = scene.ground.colorAt(wx, wy);
     if (!at) return;
-    const ink = at === 'neigeM' ? key : 'nuit2';
+    // une trace plus sombre que ce qu'elle foule
+    const ink = at === 'neigeM' ? key : at === 'neigeO' ? 'nuit2' : 'nuit';
     const p = scene.ground.stamp(wx, wy, ink);
     if (!p) return;
     if (trLen === TRACE_CAP) { scene.ground.restore(trX[trHead], trY[trHead]); trHead = (trHead + 1) % TRACE_CAP; trLen--; }
@@ -239,8 +240,6 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     }
     updateParticles(dt);
     fadeTraces();
-    zoomTimer += dt;
-    if (zoomTimer > 6 && !attract) { zoomTimer = 0; checkZoom(); } // jamais deux paliers coup sur coup
   }
 
   // Le point (x, y), relatif au coin avant d'une colonne de hauteur h, est-il
@@ -291,11 +290,15 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     const faded = new Set();
     if (!attract) {
       let rx0 = Math.floor(psx - cx) - 14, ry0 = Math.floor(psy - cy) - 22, rx1 = rx0 + 30, ry1 = ry0 + 40;
+      // les maisons devant Pierre qui cachent les abords : on les coupe au
+      // rez-de-chaussée (maison de poupée), pour voir la rue autour de lui
+      const around = [];
+      for (let ox = -90; ox <= 90; ox += 30) for (let oy = -40; oy <= 50; oy += 30) around.push([ox, oy]);
       for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
         const n = city.at(i, j);
         if (n <= 0 || i + j <= pk) continue;
         const [fx, fy] = scene.front(i, j);
-        if (!hidesPoint(psx - fx, psy - fy, n * 60 + 34)) continue;
+        if (!around.some(([ox, oy]) => hidesPoint(psx + ox - fx, psy + oy - fy, n * 60 + 34))) continue;
         faded.add(j * city.w + i + 1);
         rx0 = Math.min(rx0, fx - CELL - cx); rx1 = Math.max(rx1, fx + CELL + 1 - cx);
         ry0 = Math.min(ry0, fy - CELL / 2 - n * 60 - 34 - 24 - cy); ry1 = Math.max(ry1, fy + 1 - cy);
@@ -305,7 +308,7 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
         ctx.save();
         ctx.beginPath(); ctx.rect(rx0, ry0, rx1 - rx0, ry1 - ry0); ctx.clip();
         ctx.translate(rx0, ry0);
-        scene.draw(ctx, cx + rx0, cy + ry0, rx1 - rx0, ry1 - ry0, sprites, { fade: (i, j) => (faded.has(j * city.w + i + 1) ? 0.32 : 1) });
+        scene.draw(ctx, cx + rx0, cy + ry0, rx1 - rx0, ry1 - ry0, sprites, { fade: (i, j) => (faded.has(j * city.w + i + 1) ? 'cut' : 1) });
         ctx.restore();
       }
     }
@@ -330,32 +333,16 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
         if ((px + py + Math.floor(s.t * 4)) % (a > 0.7 ? 3 : 2) === 0) ctx.fillRect(x + px, y + py, 1, 1);
       }
     }
-    // La nuit : tout s'enfonce dans le noir hors de la lueur autour de Pierre
-    const lx = attract ? vw / 2 : pierre.x - pierre.y - cx, ly = attract ? vh / 2 : (pierre.x + pierre.y) / 2 - cy - 12;
-    // les réverbères à l'écran
-    const lamps = [], heads = [];
+    // La nuit tombe du ciel et des étages (peinte dans les maisons, buildings.js) ;
+    // au ras du sol on voit, et les réverbères gardent leur flamme vive
+    ctx.fillStyle = PAL.ocre;
     for (const [type, px, py] of city.props) {
       if (!PROP_TYPES[type].light) continue;
-      const sx = Math.round(px - py - cx), sy = Math.round((px + py) / 2 - cy);
-      if (sx < -LIGHT_W || sx > vw + LIGHT_W || sy < -LIGHT_H || sy > vh + LIGHT_H * 2) continue;
-      lamps.push(sx, sy);
       const spr = propSprite(type, 0);
-      heads.push([sx - spr.ax + spr.head[0], sy - spr.ay + spr.head[1]]);
+      const hx = Math.round(px - py - cx) - spr.ax + spr.head[0], hy = Math.round((px + py) / 2 - cy) - spr.ay + spr.head[1];
+      if (hx < -4 || hx > vw + 4 || hy < -4 || hy > vh + 4) continue;
+      ctx.fillRect(hx - 2, hy - 2, 5, 5);
     }
-    const dx0 = Math.round(lx - darkness.width / 2), dy0 = Math.round(ly - darkness.height / 2);
-    if (!lamps.length) ctx.drawImage(darkness, dx0, dy0);
-    else {
-      // ils percent la nuit : un rond de lumière tramé à leur pied
-      nightCtx.globalCompositeOperation = 'copy';
-      nightCtx.drawImage(darkness, dx0, dy0);
-      nightCtx.globalCompositeOperation = 'destination-out';
-      for (let k = 0; k < lamps.length; k += 2) nightCtx.drawImage(lampLight, lamps[k] - LIGHT_W / 2, lamps[k + 1] - LIGHT_H / 2 - 8);
-      nightCtx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(nightLayer, 0, 0);
-    }
-    // la flamme reste vive dans le noir
-    ctx.fillStyle = PAL.ocre;
-    for (const [hx, hy] of heads) ctx.fillRect(hx - 2, hy - 2, 5, 5);
     // Notes
     for (const n of notes) {
       const fadeN = Math.max(0, (n.t - n.life * 0.55) / (n.life * 0.45));
@@ -364,44 +351,6 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     // Neige qui tombe
     ctx.fillStyle = PAL.neige;
     for (const f of flakes) ctx.fillRect(Math.round(f.x), Math.round(f.y), f.big ? 2 : 1, f.big ? 2 : 1);
-  }
-
-  /* Le masque de la nuit : un noir tramé (matrice de Bayer 4 × 4) de plus en
-     plus dense en s'éloignant du centre, qu'on pose centré sur Pierre. Deux
-     fois la taille de la vue, pour la couvrir quand la caméra a du retard. */
-  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  const NIGHT = { clear: 0.13, dark: 0.42, max: 0.88 }; // en part de la hauteur de la vue
-  let darkness = document.createElement('canvas');
-  const nightLayer = document.createElement('canvas'), nightCtx = nightLayer.getContext('2d');
-  // La lumière d'un réverbère : une ellipse (le sol vu en biais) tramée, qui efface la nuit
-  const LIGHT_W = 140, LIGHT_H = 90;
-  const lampLight = document.createElement('canvas');
-  (() => {
-    lampLight.width = LIGHT_W; lampLight.height = LIGHT_H;
-    const g = lampLight.getContext('2d'), img = g.createImageData(LIGHT_W, LIGHT_H), d = img.data;
-    for (let y = 0; y < LIGHT_H; y++) for (let x = 0; x < LIGHT_W; x++) {
-      const dist = Math.hypot((x + 0.5 - LIGHT_W / 2) / (LIGHT_W / 2), (y + 0.5 - LIGHT_H / 2) / (LIGHT_H / 2));
-      const t = Math.min(1, Math.max(0, 1 - dist) * 1.4);
-      if (t * 16 <= BAYER[(y % 4) * 4 + (x % 4)]) continue;
-      d[(y * LIGHT_W + x) * 4 + 3] = 255;
-    }
-    g.putImageData(img, 0, 0);
-  })();
-  function buildDarkness() {
-    const w = vw * 2, h = vh * 2;
-    darkness = document.createElement('canvas');
-    darkness.width = w; darkness.height = h;
-    const g = darkness.getContext('2d'), img = g.createImageData(w, h), d = img.data;
-    const [r, gg, b] = [5, 7, 12]; // le noir de la palette (PAL.nuit)
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      // une ellipse 2:1, comme le sol vu en isométrique
-      const dist = Math.hypot((x - w / 2) / 1.6, (y - h / 2));
-      const t = Math.min(1, Math.max(0, (dist - NIGHT.clear * vh) / ((NIGHT.dark - NIGHT.clear) * vh))) * NIGHT.max;
-      if (t * 16 <= BAYER[(y % 4) * 4 + (x % 4)]) continue;
-      const o = (y * w + x) * 4;
-      d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
-    }
-    g.putImageData(img, 0, 0);
   }
 
   let last = 0, raf = 0;
@@ -420,34 +369,9 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     perf.render += (performance.now() - t1 - perf.render) * 0.05;
   }
 
-  // ─── Le zoom suit l'armée : un facteur entier (pixels nets), qui recule ───
-  function viewHeight() {
-    // rien ne bouge avant ARMY_NEAR rats, puis on recule en suivant le logarithme
-    const k = Math.min(1, Math.max(0, Math.log10(Math.max(1, army) / ARMY_NEAR) / Math.log10(ARMY_FAR / ARMY_NEAR)));
-    return VIEW_NEAR + (VIEW_FAR - VIEW_NEAR) * k;
-  }
   function factorFor(dw, dh) {
-    const auto = Math.max(1, Math.floor(Math.min(dh / viewHeight(), dw / (viewHeight() * 0.66))));
+    const auto = Math.max(1, Math.floor(Math.min(dh / VIEW_H, dw / (VIEW_H * 0.66))));
     return Math.max(1, auto + zoomPref);
-  }
-  // Quand le facteur change, on passe de l'ancien au nouveau en douceur
-  // (une transformation CSS le temps du travelling, puis de nouveau des pixels nets)
-  let zoomTimer = 0;
-  function checkZoom() {
-    const dpr = window.devicePixelRatio || 1, host = canvas.parentElement;
-    const next = factorFor(host.clientWidth * dpr, host.clientHeight * dpr);
-    if (next === factor) return;
-    const old = factor;
-    const psx = (pierre.x - pierre.y - cam.x) * old / dpr, psy = ((pierre.x + pierre.y) / 2 - cam.y) * old / dpr;
-    resize();
-    cam = { x: pierre.x - pierre.y - vw / 2, y: (pierre.x + pierre.y) / 2 - vh / 2 - 12 };
-    canvas.style.transition = 'none';
-    canvas.style.transformOrigin = `${psx}px ${psy}px`;
-    canvas.style.transform = `scale(${old / factor})`;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      canvas.style.transition = 'transform 5s cubic-bezier(.45, 0, .25, 1)';
-      canvas.style.transform = 'scale(1)';
-    }));
   }
 
   // ─── Taille de la vue : un facteur entier, des pixels nets ───
@@ -463,8 +387,6 @@ export function createGame({ canvas, city, save = null, onRats = () => {}, onMes
     canvas.style.height = (vh * factor / dpr) + 'px';
     ctx.imageSmoothingEnabled = false;
     resetFlakes();
-    buildDarkness();
-    nightLayer.width = vw; nightLayer.height = vh;
     if (!paused) render();
   }
 

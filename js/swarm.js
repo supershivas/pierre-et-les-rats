@@ -19,8 +19,8 @@
      Les pixels des rats sont écrits directement dans un tampon (Uint32), puis
      envoyés d'un coup par diagonale (le rectangle qu'ils occupent) : aucun
      appel de dessin par rat. */
-import { CELL } from './scale.js?v=1.3.0';
-import { PIX } from './rat-sprites.js?v=1.3.0';
+import { CELL } from './scale.js?v=1.4.0';
+import { PIX } from './rat-sprites.js?v=1.4.0';
 
 const GRID = 8;               // px : taille des cases de voisinage
 const SEP_R = 5;              // px : distance de séparation
@@ -67,7 +67,7 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
   const cells = city.w * city.h;
   const dist = new Int16Array(cells), flowX = new Float32Array(cells), flowY = new Float32Array(cells);
   let flowFrom = -1;
-  const open = (i, j) => city.at(i, j) === 0;
+  const open = (i, j) => city.walk(i, j);
   function updateFlow(px, py) {
     const pi = (px / CELL) | 0, pj = (py / CELL) | 0, k = pj * city.w + pi;
     if (k === flowFrom) return;
@@ -105,7 +105,7 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
     }
   }
 
-  const solid = (wx, wy) => city.at(Math.floor(wx / CELL), Math.floor(wy / CELL)) !== 0;
+  const solid = (wx, wy) => !city.walk(Math.floor(wx / CELL), Math.floor(wy / CELL));
   const blocked = (px, py) => solid(px - RAT_R, py - RAT_R) || solid(px + RAT_R, py - RAT_R) || solid(px - RAT_R, py + RAT_R) || solid(px + RAT_R, py + RAT_R);
 
   function add(px, py) {

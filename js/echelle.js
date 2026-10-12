@@ -1,12 +1,12 @@
 /* La planche d'échelle : les premiers éléments du jeu, côte à côte puis un par
    un, dessinés par le même code que le jeu (sprites.js, buildings.js). */
-import { makeCity, hash } from './city.js?v=1.3.0';
-import { renderColumn } from './buildings.js?v=1.3.0';
-import { drawPierre, drawNote } from './sprites.js?v=1.3.0';
-import { ATLAS } from './rat-sprites.js?v=1.3.0';
-import { propSprite } from './props.js?v=1.3.0';
-import { PAL } from './palette.js?v=1.3.0';
-import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.3.0';
+import { makeCity, hash } from './city.js?v=1.4.0';
+import { renderColumn } from './buildings.js?v=1.4.0';
+import { drawPierre, drawNote } from './sprites.js?v=1.4.0';
+import { ATLAS } from './rat-sprites.js?v=1.4.0';
+import { propSprite } from './props.js?v=1.4.0';
+import { PAL } from './palette.js?v=1.4.0';
+import { CELL, FLOOR, ROOF, PIERRE, RAT, NOTE, WINDOW, DOOR, toMeters } from './scale.js?v=1.4.0';
 
 const $ = id => document.getElementById(id);
 const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
@@ -58,7 +58,7 @@ function zoomed(src, z) {
   return c;
 }
 
-const house1 = house(1), house6 = house(6);
+const house1 = house(1), house3 = house(3), house6 = house(6);
 const elev = elevation(house6, 6);
 const door = crop(elev, 14, elev.height - 50, 32, 50);
 const win = crop(elev, 5, elev.height - FLOOR - 50, 18, 50);
@@ -81,9 +81,9 @@ const CARDS = [
   { title: 'Note de musique', art: [note], dims: `${NOTE.w} × ${NOTE.h} px`, real: '—', about: 'Sort de la flûte à chaque note jouée, monte en ondulant et se trame en s\'effaçant.' },
   { title: 'Pierre', art: [pierreStand, pierreWalk, pierrePlay], dims: `${PIERRE.w} × ${PIERRE.h} px`, real: `${toMeters(PIERRE.h)} m`, about: 'Une silhouette noire, rien de plus : debout, en marche, jouant de la flûte. Dans le jeu, il est tout petit dans l\'écran (la vue montre environ 600 px de haut).' },
   { title: 'Porte-fenêtre', art: [win], dims: `${WINDOW.w} × ${WINDOW.h} px`, real: `${toMeters(WINDOW.w)} × ${toMeters(WINDOW.h)} m`, about: 'Deux par module et par étage, alignées d\'un étage à l\'autre : c\'est ce rythme qui fait l\'immeuble haussmannien. Une sur six environ est éclairée.' },
-  { title: 'Arcade', art: [door], dims: `${DOOR.w} × ${DOOR.h} px`, real: `${toMeters(DOOR.w)} × ${toMeters(DOOR.h)} m`, about: 'Le rez-de-chaussée sur rue : une grande baie cintrée (porte ou boutique, parfois éclairée) dans un mur à refends.' },
-  { title: 'Module d\'immeuble', art: [house1.canvas], dims: `${CELL} × ${CELL} × ${FLOOR} px`, real: `${toMeters(CELL)} m de côté, un étage`, about: 'La brique du générateur : un étage sur une case. L\'atelier les empile (jusqu\'à 6) et le toit suit.' },
-  { title: 'Immeuble haussmannien', art: [house6.canvas], dims: `${CELL * 2 + 1} × ${house6.h} px à l\'écran`, real: `${toMeters(6 * FLOOR + ROOF)} m au faîtage`, about: 'Rez-de-chaussée et cinq étages : refends et arcades en bas, balcons filants au 2e et au 5e, corniche épaisse, comble à la Mansart et ses lucarnes. La même hauteur d\'un bout à l\'autre de l\'îlot.' },
+  { title: 'Rez-de-chaussée', art: [door], dims: `${DOOR.w} × ${DOOR.h} px`, real: `${toMeters(DOOR.w)} × ${toMeters(DOOR.h)} m`, about: 'Quatre ouvertures tirées au sort sur rue : l\'arcade de boutique, la porte cochère, le café et son store rayé, la porte à imposte. Sur cour, des fenêtres basses ; sous un passage, une arche de part en part.' },
+  { title: 'Vieille maison parisienne', art: [house1.canvas, house3.canvas], dims: `${CELL} × ${CELL} px par case, ${FLOOR} px par étage`, real: `${toMeters(CELL)} m de côté, 1 à 3 étages`, about: 'Jusqu\'à trois niveaux, ce ne sont pas des immeubles haussmanniens : enduit, fenêtres plus petites et pas tout à fait alignées, volets, devanture de bois, toit à deux pans et lucarne à poulie.' },
+  { title: 'Immeuble haussmannien', art: [house6.canvas], dims: `${CELL * 2 + 1} × ${house6.h} px à l\'écran`, real: `${toMeters(6 * FLOOR + ROOF)} m au faîtage`, about: 'À partir de quatre niveaux : refends et ouverture au rez-de-chaussée (boutique, porte cochère, café ou porte), entresol, fronton au 2e, balcons filants au 2e et au 5e, balconnets, corniche, comble à la Mansart, une à trois cheminées.' },
   { title: 'Mobilier urbain', art: ['lamp', 'tree', 'bench', 'colonne', 'borne'].map(t => propSprite(t, 0).c), dims: 'réverbère 11 × 70 px', real: 'réverbère 3,5 m, arbre 6 m, colonne 2,8 m', about: 'Réverbère (il éclaire la nuit), platane nu sous la neige, banc, colonne Morris, borne. Posé dans les rues avec l\'outil Mobilier de l\'atelier.' },
 ];
 

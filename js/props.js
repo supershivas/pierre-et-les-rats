@@ -3,8 +3,8 @@
    data/ville.json (« props » : [type, x, y, variante]) et placés dans
    l'atelier. Chaque objet est dessiné une fois dans un petit canvas, dans la
    palette du jeu ; les réverbères éclairent la nuit (game.js). */
-import { PAL } from './palette.js?v=1.3.0';
-import { hash, rng } from './city.js?v=1.3.0';
+import { PAL } from './palette.js?v=1.4.0';
+import { hash, rng } from './city.js?v=1.4.0';
 
 export const PROP_TYPES = {
   lamp:    { label: 'Réverbère', icon: 'ti-bulb', r: 2, light: true },
@@ -126,9 +126,9 @@ export function generateProps(city) {
   const C = 60;
   const r = rng(city.seed * 7 + 3);
   for (let y = 0; y < city.h; y++) for (let x = 0; x < city.w; x++) {
-    if (city.at(x, y) !== 0) continue;
+    if (!city.isStreet(x, y)) continue;
     const walls = [[0, -1], [-1, 0], [0, 1], [1, 0]].filter(([dx, dy]) => city.at(x + dx, y + dy) > 0);
-    const openAround = [[0, -1], [-1, 0], [0, 1], [1, 0]].filter(([dx, dy]) => city.at(x + dx, y + dy) === 0).length;
+    const openAround = [[0, -1], [-1, 0], [0, 1], [1, 0]].filter(([dx, dy]) => city.isStreet(x + dx, y + dy)).length;
     if (walls.length && hash(x, y, city.seed, 61) < 0.22) {
       // un réverbère contre le mur, à 40 cm
       const [dx, dy] = walls[0];

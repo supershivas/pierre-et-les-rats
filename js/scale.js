@@ -5,7 +5,7 @@ export const CM_PER_PX = 5;
 export const CELL = 60;       // un module d'immeuble : 3 m de côté
 export const FLOOR = 60;      // un étage : 3 m
 export const ROOF = 34;       // hauteur du toit au faîtage : 1,70 m
-export const MAX_FLOORS = 7;  // rez-de-chaussée compris (Haussmann : RDC + 5 + parfois 6)
+export const MAX_FLOORS = 8;  // rez-de-chaussée compris (Haussmann : RDC + 5 ou 6 ; les tours de Notre-Dame : 8)
 
 export const PIERRE = { w: 13, h: 26 };   // un enfant de 1,30 m
 export const RAT = { w: 10, h: 4 };        // 25 cm de corps et tête, 25 cm de queue

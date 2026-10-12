@@ -1,11 +1,11 @@
 /* L'app : l'en-tête, l'écran d'accueil, le prologue, le HUD, les commandes
    (clavier et pouce), les réglages, la sauvegarde et la mise à jour. */
-import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=1.3.0';
-import { makeCity } from './city.js?v=1.3.0';
-import { loadCity, readDraft } from './city-store.js?v=1.3.0';
-import { createGame } from './game.js?v=1.3.0';
-import { makeFlute } from './audio.js?v=1.3.0';
-import { MOVE, keyIs, stopTypeahead } from './keys.js?v=1.3.0';
+import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=1.4.0';
+import { makeCity } from './city.js?v=1.4.0';
+import { loadCity, readDraft } from './city-store.js?v=1.4.0';
+import { createGame } from './game.js?v=1.4.0';
+import { makeFlute } from './audio.js?v=1.4.0';
+import { MOVE, keyIs, stopTypeahead } from './keys.js?v=1.4.0';
 
 const SAVE_KEY = 'pierre:partie';
 const PREFS_KEY = 'pierre:prefs';
