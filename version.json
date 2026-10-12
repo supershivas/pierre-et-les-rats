@@ -1,9 +1,7 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "date": "2026-10-12",
   "changes": [
-    "Paris pendant la Commune, l'hiver du siège : la Seine, l'île de la Cité et Notre-Dame, des quais, des ponts, des trottoirs, des passages",
-    "Le monde à hauteur d'enfant : la nuit tombe des étages, et les maisons devant Pierre se coupent au rez-de-chaussée",
-    "L'atelier gagne une vue de dessus et un outil Terrain ; le Labo propose scénarios, personnages, objets, bâtiments et urbanisme"
+    "Le Labo : un prototype three.js du jeu, à comparer en direct avec le moteur actuel (isométrique, à hauteur d'enfant, vue libre)"
   ]
 }

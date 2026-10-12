@@ -137,6 +137,15 @@ planche gardent les tokens du design system.
   colonnes (le récit, le jeu, ce que ça demande). Ajouter une idée = une
   entrée dans `TOPICS` et sa vignette. Lien « Labo » (fiole) dans les
   réglages et dans l'en-tête de l'atelier.
+- `js/labo-3d.js` : **le prototype three.js** (v1.4.1, sujet « Moteur » du
+  Labo, en direct). three.js **0.170.0**, chargé à la demande depuis
+  jsDelivr par le Labo seulement (accord de Jérôme ; le jeu n'en dépend
+  pas). Même quartier, mêmes façades (renderColumn redressé en textures),
+  même nuée (`swarm.state`), rendu basse résolution agrandi sans lissage,
+  matériaux non éclairés en filtrage « nearest » : la palette reste exacte.
+  Trois caméras (`mode` : `iso` orthographique 1:1, `child` derrière Pierre,
+  `free` qui tourne). Coupe autour de Pierre (`setCut`), silhouette tramée à
+  travers les murs. `mount2D` monte le jeu 2D actuel pour comparer.
 - `scripts/stamp-version.mjs` : estampille `?v=` sur imports et feuilles de
   style ; **à lancer après chaque changement de `version.json`** (GitHub
   Pages garde 10 min de cache).

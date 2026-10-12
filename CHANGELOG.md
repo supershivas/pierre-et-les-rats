@@ -1,5 +1,8 @@
 # Historique
 
+## 1.4.1 — 2026-10-12
+- Le Labo : un sujet « Moteur » pour comparer en direct le jeu d'aujourd'hui (canvas 2D) et un prototype three.js du même quartier et de la même nuée, en isométrique pixel, à hauteur d'enfant et en vue libre
+
 ## 1.4.0 — 2026-10-12
 - On change d'époque : Paris en janvier 1871, l'hiver du siège, juste avant la Commune
 - La Seine traverse le quartier, se partage autour de l'île de la Cité où se dresse Notre-Dame ; des quais, des ponts, des trottoirs, des passages sous les immeubles

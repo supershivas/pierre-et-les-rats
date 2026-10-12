@@ -19,8 +19,8 @@
      Les pixels des rats sont écrits directement dans un tampon (Uint32), puis
      envoyés d'un coup par diagonale (le rectangle qu'ils occupent) : aucun
      appel de dessin par rat. */
-import { CELL } from './scale.js?v=1.4.0';
-import { PIX } from './rat-sprites.js?v=1.4.0';
+import { CELL } from './scale.js?v=1.4.1';
+import { PIX } from './rat-sprites.js?v=1.4.1';
 
 const GRID = 8;               // px : taille des cases de voisinage
 const SEP_R = 5;              // px : distance de séparation
@@ -338,6 +338,8 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
   return {
     add, update, draw,
     get count() { return n; },
+    // l'état brut, en lecture (le prototype 3D du labo dessine les rats lui-même)
+    get state() { return { x, y, vx, vy, z, st, ph }; },
     get visibleCount() { return nVisible; },
     capacity,
   };

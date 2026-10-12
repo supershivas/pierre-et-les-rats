@@ -4,10 +4,10 @@
    ce qu'elle changerait. Rien n'est lu ni écrit dans le navigateur.
 
    Ajouter une idée = ajouter une entrée dans TOPICS (et sa vignette). */
-import { PAL } from './palette.js?v=1.4.0';
-import { drawPierre, drawNote } from './sprites.js?v=1.4.0';
-import { ATLAS, POSE_ROWS } from './rat-sprites.js?v=1.4.0';
-import { hash } from './city.js?v=1.4.0';
+import { PAL } from './palette.js?v=1.4.1';
+import { drawPierre, drawNote } from './sprites.js?v=1.4.1';
+import { ATLAS, POSE_ROWS } from './rat-sprites.js?v=1.4.1';
+import { hash } from './city.js?v=1.4.1';
 
 const W = 320, H = 180;
 
@@ -334,6 +334,23 @@ const NOW = {
 };
 const TOPICS = [
   {
+    id: 'moteur', icon: 'ti-box', title: 'Moteur : 2D ou three.js',
+    variants: [
+      { title: 'Aujourd\'hui : le canvas 2D isométrique', live: '2d', tag: 'actuelle',
+        pitch: 'Le moteur actuel, en direct : des images peintes pixel par pixel, posées en isométrique, un décor pré-calculé, la nuée écrite dans un tampon. ZQSD pour marcher, ou toucher le sol.',
+        cols: ['Le pixel art exact, peint à la main par le code : chaque pixel est voulu.', 'Une seule vue, au-dessus des toits ; les maisons devant Pierre se coupent au rez-de-chaussée pour qu\'on le voie.', 'Rien de plus : c\'est le jeu (v1.4.0). Ses limites : pas de vraie caméra, la lumière peinte, l\'occultation faite à la main.'] },
+      { title: 'three.js, isométrique pixel', live: 'iso',
+        pitch: 'La même ville en vraie 3D, vue comme aujourd\'hui : caméra orthographique, un pixel rendu pour un pixel du jeu, matériaux non éclairés et palette exacte. ZQSD, ou toucher le sol.',
+        cols: ['Le même regard que le jeu, mais les maisons sont de vrais volumes : l\'occultation est juste partout, sans tampon fait main.', 'Rien ne change pour le joueur ; on gagne la base pour tout le reste (caméras, lumière, coupe par un plan).', 'three.js (≈ 150 Ko compressés, chargé depuis le CDN), les façades du générateur redressées en textures, les rats en boîtes instanciées.'] },
+      { title: 'three.js, à hauteur d\'enfant', live: 'child',
+        pitch: 'La caméra descend dans la rue, à 1,50 m, derrière Pierre : les façades montent dans la nuit, les fenêtres éclairées percent au-dessus. Z/S pour avancer, Q/D pour tourner.',
+        cols: ['Le monde vraiment vu par un enfant : la rue, les portes cochères, la nuée à ses pieds, le reste perdu dans le noir.', 'Un jeu plus intime et plus inquiétant ; on perd la vue d\'ensemble (la carte, le ballon, le plan la rendent).', 'Une caméra en perspective, des façades plus détaillées en bas (on les voit de près), des rats mieux dessinés.'] },
+      { title: 'three.js, vue libre', live: 'free',
+        pitch: 'La caméra tourne autour de Pierre : glisser pour tourner, la molette pour s\'éloigner. On voit les faces cachées des îlots, les cours, l\'autre côté de Notre-Dame.',
+        cols: ['Paris sous tous les angles : utile pour l\'atelier, des scènes, une fin.', 'Tourner la ville pour trouver un passage ; dans l\'atelier, bâtir de tous les côtés.', 'Les faces arrière des maisons à dessiner (aujourd\'hui sombres), le reste est là.'] },
+    ],
+  },
+  {
     id: 'scenarios', icon: 'ti-flag', title: 'Scénarios : la Commune',
     variants: [
       NOW,
@@ -436,21 +453,38 @@ function renderMenu() {
     <button class="bottom-nav" type="button" data-step="1" aria-label="Variante suivante"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>`;
 }
 
-let artCanvas = null, artFn = null, t0 = 0;
+let artCanvas = null, artFn = null, t0 = 0, live = null, liveToken = 0;
 function renderView() {
   const v = TOPICS[topic].variants[variant];
+  if (live) { live.dispose(); live = null; }
+  liveToken++;
   $('view').innerHTML = `
     <div class="v-head"><span class="letter">${LETTERS[variant]}</span><h1>${v.title}</h1>${v.tag ? `<span class="v-tag">${v.tag}</span>` : ''}</div>
     <p class="v-pitch">${v.pitch}</p>
-    <div class="v-art"><canvas width="${W}" height="${H}" aria-hidden="true"></canvas></div>
+    ${v.live ? '<div class="v-live" id="live"><p class="v-loading">Chargement…</p></div><p class="v-stats" id="live-stats"></p>' : `<div class="v-art"><canvas width="${W}" height="${H}" aria-hidden="true"></canvas></div>`}
     <div class="v-cols">
       <section class="v-col"><h2>Le récit</h2><p>${v.cols[0]}</p></section>
       <section class="v-col"><h2>Le jeu</h2><p>${v.cols[1]}</p></section>
       <section class="v-col"><h2>Ce que ça demande</h2><p>${v.cols[2]}</p></section>
     </div>
     <p class="v-hint">Flèches ← → pour changer de variante, ↑ ↓ pour changer de sujet${matchMedia('(hover: none)').matches ? ' ; balayer sur mobile' : ''}.</p>`;
-  artCanvas = $('view').querySelector('canvas');
-  artFn = ART[v.art];
+  artCanvas = v.live ? null : $('view').querySelector('canvas');
+  artFn = v.live ? null : ART[v.art];
+  if (v.live) {
+    const token = liveToken;
+    import('./labo-3d.js?v=1.4.1').then(async m => {
+      const host = $('live');
+      const onStats = st => { const el = $('live-stats'); if (el) el.textContent = `${st.fps} images/s · ${st.rats} rats · simulation ${st.sim.toFixed(1)} ms · rendu ${st.draw.toFixed(1)} ms`; };
+      const mounted = v.live === '2d' ? await m.mount2D(host, { rats: 300 }) : await m.mount3D(host, { mode: v.live, rats: 300, onStats });
+      if (token !== liveToken) { mounted.dispose(); return; }
+      live = mounted;
+      host.querySelector('.v-loading')?.remove();
+      if (v.live === '2d') {
+        const tick = () => { if (live !== mounted) return; const st = mounted.game.stats; onStats({ fps: '—', rats: st.simulated, sim: st.ms.update, draw: st.ms.render }); setTimeout(tick, 1000); };
+        tick();
+      }
+    }).catch(err => { const el = $('live'); if (el) el.innerHTML = `<p class="v-loading">Impossible de charger le prototype : ${err.message}</p>`; });
+  }
   t0 = performance.now();
   $('view').scrollTop = 0;
 }
@@ -471,6 +505,8 @@ document.addEventListener('click', e => {
 });
 addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea, select')) return;
+  // ZQSD / WASD restent au prototype en direct
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) return;
   if (e.key === 'ArrowRight') { go(topic, variant + 1); e.preventDefault(); }
   else if (e.key === 'ArrowLeft') { go(topic, variant - 1); e.preventDefault(); }
   else if (e.key === 'ArrowDown') { go(topic + 1, 0); e.preventDefault(); }

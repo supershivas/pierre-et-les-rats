@@ -7,8 +7,8 @@
      { "w": 26, "h": 22, "seed": 1871, "start": [x, y],
        "rows": ["0023340…", …],   // un chiffre par colonne, 0 à 7
        "props": [["lamp", 315, 642, 0], …] }   // le mobilier : type, x, y (monde), variante */
-import { MAX_FLOORS } from './scale.js?v=1.4.0';
-import { generateProps } from './props.js?v=1.4.0';
+import { MAX_FLOORS } from './scale.js?v=1.4.1';
+import { generateProps } from './props.js?v=1.4.1';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
