@@ -220,8 +220,7 @@ planche gardent les tokens du design system.
 - three.js (une dépendance, acceptée par Jérôme pour la v2) est **copié dans
   `vendor/`** (MIT, `vendor/LICENSE-three`) : pas de CDN. `scripts/stamp-version.mjs`
   ne touche pas à `vendor/` (son `?v=170` est celui de three.js).
-- v2.0.0 est sur la branche `claude/bold-shannon-ytoxr4`, pas sur `main` (la
-  session l'imposait) : la production ne change qu'à la fusion.
+- (v2.0.0 a été poussée sur `main` ; la session imposait une branche, Jérôme veut toujours `main`.)
 
 ## Pièges connus
 
