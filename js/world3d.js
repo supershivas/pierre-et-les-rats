@@ -282,7 +282,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
       const seg = (pts, tones, over) => m.prism(0, 0, axis, pts.map(([u, y]) => [u, H + y]), CELL, tones, over, {});
       seg([[0, 0], [10, 22]], roofTones.slate, {}); seg([[50, 22], [60, 0]], roofTones.slate, {});
       seg([[10, 22], [30, 34]], TONES.snow, {}); seg([[30, 34], [50, 22]], TONES.snow, {});
-      if (ends.a || ends.b) m.prism(0, 0, axis, [[0, H], [10, H + 22], [30, H + 34], [50, H + 22], [60, H]], CELL, TONES.stone, { endKey: 'pierre' }, ends);
+      if (ends.a || ends.b) m.prism(0, 0, axis, [[0, H], [10, H + 22], [30, H + 34], [50, H + 22], [60, H]], CELL, TONES.stone, { endKey: 'pierre' }, ends, false);
     } else {
       ridge = 36;
       m.prism(0, 0, axis, [[0, H], [30, H + 36], [60, H]], CELL, TONES.snow, { endKey: 'pierre' }, ends);

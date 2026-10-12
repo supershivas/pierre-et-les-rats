@@ -389,7 +389,7 @@ const TOPICS = [
   {
     id: 'batiments', icon: 'ti-building', title: 'Bâtiments',
     variants: [
-      { ...NOW, title: 'Aujourd\'hui : immeubles, maisons, Notre-Dame', pitch: 'Le générateur fait déjà des immeubles haussmanniens (boutiques, portes cochères, cafés, balcons au 2e et au 5e), de vieilles maisons parisiennes, Notre-Dame sur l\'île de la Cité, des passages.' },
+      { ...NOW, title: 'Aujourd\'hui : immeubles, maisons, Notre-Dame', pitch: 'Le générateur fait déjà des immeubles haussmanniens (boutiques, portes cochères, cafés, balcons au 2e et au 5e), de vieilles maisons parisiennes, des passages couverts ; Notre-Dame est un seul bloc sur l\'île de la Cité.' },
       { title: 'L\'Hôtel de Ville en flammes', art: 'hotelville', pitch: 'Le 24 mai 1871, l\'Hôtel de Ville brûle. Un monument immense, ses pavillons, son beffroi, le feu à toutes les fenêtres : le décor de la fin.',
         cols: ['L\'image la plus forte de la Semaine sanglante, vue d\'en bas.', 'Un lieu à traverser pendant l\'incendie, ou à fuir.', 'Un monument sur plusieurs cases (comme Notre-Dame), un feu animé.'] },
       { title: 'Les Halles de Baltard', art: 'halles', pitch: 'Les pavillons de fer et de verre du « ventre de Paris », éclairés la nuit. Pendant le siège, presque vides ; pour les rats, un paradis.',
@@ -408,8 +408,8 @@ const TOPICS = [
         cols: ['Le Paris souterrain, le royaume des rats ; un refuge pendant la Semaine sanglante.', 'Un réseau à maîtriser : envoyer la nuée dessous, la rappeler ailleurs.', 'Une seconde grille (les égouts), un rendu en coupe ou un calque. Coût moyen à fort.'] },
       { title: 'Les toits de Paris', art: 'toits', pitch: 'Par une lucarne, Pierre monte sur les toits : le zinc, les cheminées, les rues en contrebas. Un autre chemin, loin des patrouilles.',
         cols: ['L\'enfant sur les toits : le seul endroit où l\'on voit loin.', 'Un deuxième niveau de déplacement, au-dessus des barricades.', 'Les faîtages comme chemins ; la nuit des étages s\'ouvre quand on y monte.'] },
-      { title: 'Percée et vieux Paris', art: 'percee', pitch: 'Le boulevard haussmannien tranche le vieux quartier : d\'un côté la ligne droite, éclairée, surveillée ; de l\'autre le lacis de ruelles où l\'on se cache.',
-        cols: ['Le Paris de 1871 est un chantier : la ville neuve et l\'ancienne se touchent.', 'Deux façons de passer : vite et à découvert, ou lentement et caché.', 'Le générateur sait déjà faire des maisons anciennes ; ajouter un boulevard droit et large.'] },
+      { title: 'Percée et vieux Paris', art: 'percee', tag: 'retenue', pitch: 'Le boulevard haussmannien tranche le vieux quartier : d\'un côté la ligne droite, éclairée, surveillée ; de l\'autre le lacis de ruelles où l\'on se cache.',
+        cols: ['Le Paris de 1871 est un chantier : la ville neuve et l\'ancienne se touchent.', 'Deux façons de passer : vite et à découvert, ou lentement et caché.', 'Fait en v2.0.0 : deux boulevards droits (arbres, réverbères, bancs) dans chaque sens, des ruelles de maisons basses entre eux.'] },
       { title: 'La Seine gelée', art: 'seine', pitch: 'L\'hiver 1870-1871 est terrible : la Seine charrie des glaçons. Faire passer l\'armée sur la glace, qui craque si la nuée s\'agglutine.',
         cols: ['La Seine est déjà là, avec ses quais et ses ponts : l\'hiver la change en piège.', 'Un niveau d\'adresse : étirer la nuée en file, ne jamais la laisser se masser.', 'De la glace praticable sur certaines cases, un poids de la nuée par case.'] },
     ],

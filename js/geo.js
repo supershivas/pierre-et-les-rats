@@ -76,8 +76,9 @@ export function createMesher(THREE) {
     },
     // un profil [[u, y], …] extrudé sur la longueur len, le long de x (u = z) ou de z (u = x),
     // à partir du point (x, z) ; les segments du profil sont les pentes (la base n'est pas
-    // dessinée), ends : fermer le bout a (t = 0) et/ou le bout b (t = len) par un pignon
-    prism(x, z, axis, profile, len, tones, over = {}, ends = {}) {
+    // dessinée ; slopes: false pour ne dessiner que les pignons), ends : fermer le bout a
+    // (t = 0) et/ou le bout b (t = len) par un pignon
+    prism(x, z, axis, profile, len, tones, over = {}, ends = {}, slopes = true) {
       const v = (u, y, t) => (axis === 'x' ? [x + t, y, z + u] : [x + u, y, z + t]);
       const mid = v(profile.reduce((s2, q2) => s2 + q2[0], 0) / profile.length, Math.max(...profile.map(q2 => q2[1])) / 2, len / 2);
       const ov = { ...over, out: mid };
@@ -86,7 +87,7 @@ export function createMesher(THREE) {
         g.setAttribute('position', new THREE.Float32BufferAttribute([...A, ...B, ...C], 3));
         add(g, new THREE.Matrix4(), tn, o);
       };
-      for (let i = 0; i < profile.length - 1; i++) {
+      for (let i = 0; slopes && i < profile.length - 1; i++) {
         const [u0, y0] = profile[i], [u1, y1] = profile[i + 1];
         const A = v(u0, y0, 0), B = v(u1, y1, 0), C = v(u1, y1, len), D = v(u0, y0, len);
         tri(A, B, C, tones, ov); tri(A, C, D, tones, ov);
