@@ -8,15 +8,15 @@
    l'est, y (ici z pour three.js) vers le sud, le haut est y pour three.js.
    L'image est calculée en petite résolution (environ 250 px de haut) puis
    agrandie d'un facteur entier sans lissage : pixels nets, palette exacte. */
-import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.1.0';
-import { CELL } from './scale.js?v=2.1.0';
-import { loadThree } from './three-lib.js?v=2.1.0';
-import { buildWorld, tick } from './world3d.js?v=2.1.0';
-import { createSwarm, ST } from './swarm.js?v=2.1.0';
-import { PROP_TYPES } from './props.js?v=2.1.0';
-import { makeGroundColor } from './ground.js?v=2.1.0';
-import { hash } from './city.js?v=2.1.0';
-import { drawNote } from './sprites.js?v=2.1.0';
+import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.2.0';
+import { CELL } from './scale.js?v=2.2.0';
+import { loadThree } from './three-lib.js?v=2.2.0';
+import { buildWorld, tick } from './world3d.js?v=2.2.0';
+import { createSwarm, ST } from './swarm.js?v=2.2.0';
+import { PROP_TYPES } from './props.js?v=2.2.0';
+import { makeGroundColor } from './ground.js?v=2.2.0';
+import { hash } from './city.js?v=2.2.0';
+import { drawNote } from './sprites.js?v=2.2.0';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const PIERRE_R = 5;
@@ -43,6 +43,10 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   const actors = new THREE.Scene();               // Pierre, les rats, les notes : dessinés après le décor et son double tramé
   const world = await buildWorld(THREE, city, { onProgress });
   scene.add(world.root);
+  /* La grille est déformée (warp.js) : la simulation (Pierre, les rats, les traces) reste en
+     coordonnées de la grille, le monde vu (caméra, lumières, coupe des immeubles) est déformé. */
+  const W = world.warp, wA = [], wB = [], wC = [];
+  const toWorld = (x, y, o = wA) => W.fwd(x, y, o);
   const camera = new THREE.PerspectiveCamera(FOV, 1, 4, 4000);
   const palSample = key => PAL_INDEX[key];
 
@@ -99,7 +103,8 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   let playing = false, playTime = save?.playSeconds || 0, callTimer = 1.2;
   let time = 0, paused = true, attract = false, attractT = 0;
   const input = { up: 0, down: 0, left: 0, right: 0, run: false, target: null, hold: false, rotate: 0 };
-  cam.tx = pierre.x; cam.tz = pierre.y;
+  const camToPierre = () => { const q = toWorld(pierre.x, pierre.y); cam.tx = q[0]; cam.tz = q[1]; };
+  camToPierre();
 
   // ─── Le sol et les obstacles ───
   function solid(wx, wy) { return !city.walk(Math.floor(wx / CELL), Math.floor(wy / CELL)); }
@@ -137,12 +142,14 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   const trMat = new THREE.ShaderMaterial({
     uniforms: { now: { value: 0 }, life: { value: TRACE_LIFE }, size: { value: 1 }, pal: palUniform, palN: { value: PALETTE.length } },
     vertexShader: `
+      ${W.WARP_GLSL}
       attribute float born; attribute float tone;
       uniform float now; uniform float life; uniform float size;
       varying float vTone;
       void main() {
         vTone = tone;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec3 wp = position; wp.xz = warp(wp.xz);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
         gl_PointSize = size;
         float lim = life * (0.6 + 0.4 * fract(sin(dot(position.xz, vec2(12.9898, 78.233))) * 43758.5453));
         if (born < 0.0 || now - born > lim) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -263,13 +270,14 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   function updateRatMatrices() {
     const s = swarm.state, n = swarm.count, m = ratMesh.instanceMatrix.array;
     for (let i = 0; i < n; i++) {
-      const a = Math.atan2(s.vy[i], s.vx[i]), th = -a, rear = s.st[i] === ST.REAR;
+      const j = W.fwd(s.x[i], s.y[i], wB);                                  // où il est dans le monde déformé, et dans quel sens
+      const a = Math.atan2(j[4] * s.vx[i] + j[5] * s.vy[i], j[2] * s.vx[i] + j[3] * s.vy[i]), th = -a, rear = s.st[i] === ST.REAR;
       const ct = Math.cos(th), st = Math.sin(th), ph = rear ? 1.1 : 0, cp = Math.cos(ph), sp = Math.sin(ph);
       const o = i * 16;
       m[o] = cp * ct; m[o + 1] = sp; m[o + 2] = -cp * st; m[o + 3] = 0;
       m[o + 4] = -sp * ct; m[o + 5] = cp; m[o + 6] = sp * st; m[o + 7] = 0;
       m[o + 8] = st; m[o + 9] = 0; m[o + 10] = ct; m[o + 11] = 0;
-      m[o + 12] = s.x[i]; m[o + 13] = s.z[i] + Math.abs(Math.sin(s.ph[i] * 3)) * 0.8 + (rear ? 0.4 : 0); m[o + 14] = s.y[i]; m[o + 15] = 1;
+      m[o + 12] = j[0]; m[o + 13] = s.z[i] + Math.abs(Math.sin(s.ph[i] * 3)) * 0.8 + (rear ? 0.4 : 0); m[o + 14] = j[1]; m[o + 15] = 1;
     }
     ratMesh.count = n; ghostRats.count = n;
     ratMesh.instanceMatrix.clearUpdateRanges();
@@ -320,8 +328,10 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   }
   function posePierre(p, t, playingNow) {
     const walk = pierre.moving ? Math.sin(pierre.t * 9) : 0;
-    p.g.position.set(pierre.x, 0, pierre.y);
-    p.g.rotation.y = pierre.heading;
+    const q = toWorld(pierre.x, pierre.y, wC);
+    p.g.position.set(q[0], 0, q[1]);
+    const hd = W.dirToWorld(pierre.x, pierre.y, Math.sin(pierre.heading), Math.cos(pierre.heading), wB);
+    p.g.rotation.y = Math.atan2(hd[0], hd[1]);
     p.legL.rotation.x = walk * 0.75; p.legR.rotation.x = -walk * 0.75;
     p.torso.position.y = 16 + (pierre.moving ? Math.abs(walk) * 0.7 : 0);
     if (playingNow) {
@@ -379,7 +389,8 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
       if (!n) return;
       const f = Math.max(0, (n.t - n.life * 0.55) / (n.life * 0.45));
       s.material.map = noteTex[n.kind][f > 0.8 ? 2 : f > 0.5 ? 1 : 0];
-      s.position.set(n.x, n.y, n.z);
+      const q = toWorld(n.x, n.z, wB);
+      s.position.set(q[0], n.y, q[1]);
     });
   }
   // La fumée des cheminées proches
@@ -391,7 +402,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   smGeo.setAttribute('tone', new THREE.BufferAttribute(smTone, 1));
   const smMat = new THREE.ShaderMaterial({
     uniforms: { pal: palUniform, palN: { value: PALETTE.length }, size: { value: 2 } },
-    vertexShader: `attribute float tone; uniform float size; varying float vTone; void main() { vTone = tone; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = size; if (tone < 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); }`,
+    vertexShader: `${W.WARP_GLSL} attribute float tone; uniform float size; varying float vTone; void main() { vTone = tone; vec3 wp = position; wp.xz = warp(wp.xz); gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0); gl_PointSize = size; if (tone < 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); }`,
     fragmentShader: `uniform sampler2D pal; uniform float palN; varying float vTone; void main() { ${DITHER} gl_FragColor = vec4(texture2D(pal, vec2((vTone + 0.5) / palN, 0.5)).rgb, 1.0); }`,
   });
   const smokePoints = new THREE.Points(smGeo, smMat);
@@ -399,7 +410,8 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   scene.add(smokePoints);
   function updateSmoke(dt) {
     if (Math.random() < dt * 8 && smoke.length < SMOKE) {
-      const near = world.chimneys.filter(([x, , z]) => Math.abs(x - cam.tx) < 420 && Math.abs(z - cam.tz) < 420);
+      const fx = attract ? attractPoint.x : pierre.x, fz = attract ? attractPoint.z : pierre.y;
+      const near = world.chimneys.filter(([x, , z]) => Math.abs(x - fx) < 420 && Math.abs(z - fz) < 420);
       if (near.length) {
         const [x, y, z, id] = near[Math.floor(Math.random() * near.length)];
         if (hash(id, 77) < 0.6) smoke.push({ x, y, z, t: 0, life: 3 + Math.random() * 3, id });
@@ -449,10 +461,16 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
       const [tx, ty] = input.target;
       const dx = tx - pierre.x, dy = ty - pierre.y, d = Math.hypot(dx, dy);
       if (d < 3) { if (!input.hold) input.target = null; }
-      else { vx = dx / d; vy = dy / d; }
+      else {
+        // la direction de la grille, ramenée à une vitesse de 1 dans le monde déformé
+        const j = W.dirToWorld(pierre.x, pierre.y, dx / d, dy / d, wB), sc = Math.hypot(j[0], j[1]) || 1;
+        vx = dx / d / sc; vy = dy / d / sc;
+      }
     } else if (mx || my) {
       const l = Math.hypot(mx, my); mx /= l; my /= l;
-      vx = fx * my - fz * mx; vy = fz * my + fx * mx;
+      // la direction voulue est celle de l'écran (le monde déformé) : on la ramène sur la grille
+      const g = W.dirToLogical(pierre.x, pierre.y, fx * my - fz * mx, fz * my + fx * mx, wB);
+      vx = g[0]; vy = g[1];
     }
     const speed = (input.run ? RUN : WALK) * (playing ? 0.55 : 1);
     pierre.vx = vx; pierre.vy = vy;
@@ -463,6 +481,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     if (pierre.moving) {
       // il se tourne vers où il va, en douceur
       const want = Math.atan2(vx, vy);
+      const vl = Math.hypot(vx, vy) || 1; vx /= vl; vy /= vl;
       let d = want - pierre.heading; d = Math.atan2(Math.sin(d), Math.cos(d));
       pierre.heading += d * Math.min(1, dt * 12);
       pierre.t += dt * (input.run ? 1.7 : 1);
@@ -479,7 +498,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   // ─── La caméra : libre, autour de Pierre ───
   function placeCamera(dt) {
     cam.yaw += input.rotate * dt * 1.7;
-    const tx = attract ? attractPoint.x : pierre.x, tz = attract ? attractPoint.z : pierre.y;
+    const tq = toWorld(attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y, wB), tx = tq[0], tz = tq[1];
     const k = 1 - Math.exp(-dt * (attract ? 2 : 6));
     cam.tx += (tx - cam.tx) * k; cam.tz += (tz - cam.tz) * k;
     // le zoom et l'inclinaison s'ajustent en douceur (l'accueil prend du recul)
@@ -530,7 +549,8 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     world.paintSome(attract ? 5 : 3, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y);
     perf.paint += (performance.now() - t0 - perf.paint) * 0.05; t0 = performance.now();
     const disc = 9 + Math.sqrt(swarm.count * 9 / Math.PI);
-    world.updateCuts(camera, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y, Math.max(45, disc * 1.1 + 25), dt, !attract && !sandbox);
+    const fq = toWorld(attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y, wB);
+    world.updateCuts(camera, fq[0], fq[1], Math.max(45, disc * 1.1 + 25), dt, !attract && !sandbox);
     perf.cuts += (performance.now() - t0 - perf.cuts) * 0.05; t0 = performance.now();
     if (!attract) {
       posePierre(body, playing ? time : pierre.t, playing);
@@ -540,7 +560,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     perf.rats += (performance.now() - t0 - perf.rats) * 0.05;
     body.g.visible = ghost.g.visible = !attract;
     ratMesh.visible = ghostRats.visible = !attract;
-    ghostRatMat.uniforms.uP.value.set(pierre.x, pierre.y);
+    { const q = toWorld(pierre.x, pierre.y, wB); ghostRatMat.uniforms.uP.value.set(q[0], q[1]); }
     trMat.uniforms.now.value = time; world.setTime(time); world.setLights(cam.tx, cam.tz, time);
     flMat.uniforms.uT.value = time; flMat.uniforms.uC.value.set(cam.tx, 0, cam.tz);
     flushTraces();
@@ -591,9 +611,11 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     ndc.set((px / w) * 2 - 1, -(py / h) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const o = ray.ray.origin, d = ray.ray.direction;
-    if (d.y > -0.02) return [pierre.x + d.x * 400, pierre.y + d.z * 400];     // au-dessus de l'horizon : au loin
-    const t = -o.y / d.y;
-    return [o.x + d.x * t, o.z + d.z * t];
+    let X, Z;
+    if (d.y > -0.02) { const q = toWorld(pierre.x, pierre.y, wB); X = q[0] + d.x * 400; Z = q[1] + d.z * 400; }     // au-dessus de l'horizon : au loin
+    else { const t = -o.y / d.y; X = o.x + d.x * t; Z = o.z + d.z * t; }
+    const g = W.inv(X, Z, wC);                                                 // du monde déformé à la grille
+    return [g[0], g[1]];
   }
 
   // Une nouvelle partie, ou une partie reprise : le monde reste, Pierre et l'armée repartent
@@ -602,7 +624,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     Object.assign(pierre, { x: s[0], y: s[1], vx: 0, vy: 0, heading: Math.PI / 2, moving: false, t: 0, stride: 0 });
     if (solid(pierre.x, pierre.y)) Object.assign(pierre, nearestStreet(pierre.x, pierre.y));
     cam.yaw = fromSave && Number.isFinite(fromSave.yaw) ? fromSave.yaw : Math.PI / 4;
-    cam.tx = pierre.x; cam.tz = pierre.y;
+    camToPierre();
     army = fromSave?.rats || 0; playTime = fromSave?.playSeconds || 0; playing = false; callTimer = 1.2;
     input.target = null; input.hold = false;
     swarm.clear(); notes.length = 0; smoke.length = 0;
@@ -639,7 +661,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     pause() { paused = true; },
     resume() { paused = false; last = 0; },
     get paused() { return paused; },
-    setAttract(on) { attract = on; if (!on) { cam.tx = pierre.x; cam.tz = pierre.y; } },
+    setAttract(on) { attract = on; if (!on) camToPierre(); },
     snapshot: () => ({ x: Math.round(pierre.x * 10) / 10, y: Math.round(pierre.y * 10) / 10, dir: 1, rats: army, playSeconds: Math.round(playTime), yaw: Math.round(cam.yaw * 100) / 100 }),
     world, renderer, camera, cam, pierre, swarm, city,
     setPpu(v) { ppu = v; },            // pour les essais (hors des bornes du zoom)

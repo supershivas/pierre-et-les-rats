@@ -19,8 +19,8 @@
      Les pixels des rats sont écrits directement dans un tampon (Uint32), puis
      envoyés d'un coup par diagonale (le rectangle qu'ils occupent) : aucun
      appel de dessin par rat. */
-import { CELL } from './scale.js?v=2.1.0';
-import { PIX } from './rat-sprites.js?v=2.1.0';
+import { CELL } from './scale.js?v=2.2.0';
+import { PIX } from './rat-sprites.js?v=2.2.0';
 
 const GRID = 8;               // px : taille des cases de voisinage
 const SEP_R = 5;              // px : distance de séparation

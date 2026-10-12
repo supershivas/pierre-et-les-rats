@@ -1,9 +1,9 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "date": "2026-10-12",
   "changes": [
-    "Une ville près de quatre fois plus grande : quatre boulevards est-ouest, trois nord-sud, des squares ; la Seine, sept cases de large, tout le long, à 3,5 m sous les quais, avec des piles sous les ponts",
-    "Des halos de lumière doux et dynamiques autour des réverbères, un flou de profondeur (réglable) ; dès le 3e étage, les façades sont noires",
-    "Les immeubles ne s'abaissent plus que s'ils cachent vraiment Pierre"
+    "Une carte organique, tracée d'après Paris : la Seine serpente, l'île de la Cité (avec Notre-Dame) et l'île Saint-Louis ont leur forme d'amande, les quais, les rues et les îlots ne sont plus droits",
+    "De vrais ponts inspirés du Pont Neuf (5 à 7 arches en plein cintre, piles à avant-bec, demi-lunes), des ponts de pierre plus modestes et des passerelles de fonte",
+    "Correction : un immeuble collé à la caméra qui cachait Pierre se baisse de nouveau"
   ]
 }

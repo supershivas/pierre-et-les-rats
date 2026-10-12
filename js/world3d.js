@@ -13,19 +13,24 @@
      chaussée s'abaissent, pour voir la rue derrière un immeuble (maison de
      poupée).
    - Le mobilier : des instances de modèles (props3d.js).
-   - Notre-Dame : un seul bloc (cathedral3d.js). */
-import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.1.0';
-import { CELL, FLOOR } from './scale.js?v=2.1.0';
-import { hash, hash3 } from './city.js?v=2.1.0';
-import { renderColumn } from './buildings.js?v=2.1.0';
-import { makeGroundColor } from './ground.js?v=2.1.0';
-import { createMesher, TONES } from './geo.js?v=2.1.0';
-import { buildPropGeometries } from './props3d.js?v=2.1.0';
-import { buildCathedral } from './cathedral3d.js?v=2.1.0';
-import { PROP_TYPES } from './props.js?v=2.1.0';
+   - Notre-Dame : un seul bloc (cathedral3d.js).
+   - Les ponts : bridges3d.js.
+   - La grille est déformée (warp.js, v2.2.0) : tout ce qui est en coordonnées de la
+     grille passe par warp() dans son shader ; la caméra, les lumières et la coupe
+     des immeubles sont en coordonnées du monde déformé. */
+import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.2.0';
+import { CELL, FLOOR } from './scale.js?v=2.2.0';
+import { hash, hash3 } from './city.js?v=2.2.0';
+import { renderColumn } from './buildings.js?v=2.2.0';
+import { makeGroundColor } from './ground.js?v=2.2.0';
+import { createMesher, TONES } from './geo.js?v=2.2.0';
+import { buildPropGeometries } from './props3d.js?v=2.2.0';
+import { buildCathedral } from './cathedral3d.js?v=2.2.0';
+import { PROP_TYPES } from './props.js?v=2.2.0';
+import { makeWarp } from './warp.js?v=2.2.0';
+import { findBridges, addBridge } from './bridges3d.js?v=2.2.0';
 
 export const WATER_Y = -70;                    // la Seine, 3,5 m (plus d'un étage) sous les quais
-const SLAB = 9;                                // l'épaisseur d'un tablier de pont
 const MAX_CUT_DIST = 900;
 const CUT_H = 24;                              // un immeuble coupé : un muret de 1,2 m, plus bas que Pierre
 
@@ -45,9 +50,11 @@ vec3 lighten(vec3 c, vec3 p) {
 }`;
 
 // ─── Les shaders : des indices de palette ───
-const GROUND_VS = `
+// (le sol, l'eau, les immeubles, tout ce qui est en coordonnées de la grille passe par warp() : la grille déformée)
+const GROUND_VS = W => `
+${W}
 varying vec2 vUv; varying vec3 vP;
-void main() { vUv = uv; vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+void main() { vUv = uv; vec3 p = position; p.xz = warp(p.xz); vP = p; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`;
 const INDEXED_FS = `
 uniform sampler2D map; uniform sampler2D pal; uniform float palN;
 ${LIGHT_GLSL}
@@ -56,7 +63,8 @@ void main() {
   float i = floor(texture2D(map, vUv).r * 255.0 + 0.5);
   gl_FragColor = vec4(lighten(texture2D(pal, vec2((i + 0.5) / palN, 0.5)).rgb, vP), 1.0);
 }`;
-const BUILD_VS = `
+const BUILD_VS = W => `
+${W}
 attribute vec3 aCol; attribute float aMode; attribute float aRoof;
 uniform float uCut; uniform float uH;
 varying vec2 vUv; varying vec3 vCol; varying float vMode; varying vec3 vP;
@@ -68,8 +76,11 @@ void main() {
   if (aMode > 2.5) y2 += 0.1;                 // le liseré, juste au-dessus de la tranche
   p.y = y2;
   vUv = vec2(uv.x, y2 / uH);
-  vCol = aCol; vMode = aMode; vP = (modelMatrix * vec4(p, 1.0)).xyz;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  vCol = aCol; vMode = aMode;
+  vec4 wp = modelMatrix * vec4(p, 1.0);
+  wp.xz = warp(wp.xz);
+  vP = wp.xyz;
+  gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const BUILD_FS = `
 uniform sampler2D map; uniform sampler2D pal; uniform float palN; uniform float uCut; uniform vec3 uSlice;
@@ -96,6 +107,25 @@ export async function tick(force = false) {
 export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   const root = new THREE.Group();
   const GW = city.w * CELL, GH = city.h * CELL;
+  const warp = makeWarp(city);
+  // un matériau de base de three.js (couleurs de sommets, instances) dont les sommets passent par la grille déformée
+  const warped = mat => {
+    mat.onBeforeCompile = shader => {
+      shader.vertexShader = shader.vertexShader
+        .replace('void main() {', `${warp.WARP_GLSL}\nvoid main() {`)
+        .replace('#include <project_vertex>', `
+          vec4 mvPosition = vec4( transformed, 1.0 );
+          #ifdef USE_INSTANCING
+          mvPosition = instanceMatrix * mvPosition;
+          #endif
+          vec4 wpos = modelMatrix * mvPosition;
+          wpos.xz = warp(wpos.xz);
+          mvPosition = viewMatrix * wpos;
+          gl_Position = projectionMatrix * mvPosition;`);
+    };
+    mat.customProgramCacheKey = () => 'warp';
+    return mat;
+  };
   const nearest = tex => { tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.colorSpace = THREE.NoColorSpace; return tex; };
 
   // la palette, une texture de 9 × 1
@@ -145,7 +175,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     if ((y & 31) === 0) await tick();
   }
   const lightU = { value: Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 1, 0)) };
-  const groundMat = new THREE.ShaderMaterial({ uniforms: { map: { value: byteTexture(gdata, GW, GH) }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU }, vertexShader: GROUND_VS, fragmentShader: INDEXED_FS });
+  const groundMat = new THREE.ShaderMaterial({ uniforms: { map: { value: byteTexture(gdata, GW, GH) }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU }, vertexShader: GROUND_VS(warp.WARP_GLSL), fragmentShader: INDEXED_FS });
   {
     const pos = [], uv = [];
     const quad = (x0, z0, y, u0, v0) => {
@@ -185,7 +215,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     wg.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
     waterMat = new THREE.ShaderMaterial({
       uniforms: { map: { value: wtex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uT: { value: 0 }, uBase: { value: PAL_INDEX.nuit2 }, uFleck: { value: PAL_INDEX.neigeO } },
-      vertexShader: `varying vec2 vW; varying vec3 vP; void main() { vW = position.xz; vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      vertexShader: `${warp.WARP_GLSL} varying vec2 vW; varying vec3 vP; void main() { vW = position.xz; vec3 p = position; p.xz = warp(p.xz); vP = p; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
       fragmentShader: `
         uniform sampler2D map; uniform sampler2D pal; uniform float palN; uniform float uT; uniform float uBase; uniform float uFleck;
         ${LIGHT_GLSL}
@@ -207,7 +237,6 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   // ─── Les quais et les ponts ───
   {
     const m = createMesher(THREE);
-    const kindIs = (x, y, kk) => city.kind(x, y) === kk;
     // un garde-corps de fonte sur un petit soubassement de pierre : des barreaux, deux lisses, la neige dessus
     const rail = (mm, ex, ez, dx, dz) => {
       mm.box(ex, 0, ez, dx ? 3.2 : CELL, 3, dz ? 3.2 : CELL, TONES.stone, { up: 'neige' });
@@ -217,28 +246,18 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     };
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
       const k = city.kind(i, j), cx = (i + 0.5) * CELL, cz = (j + 0.5) * CELL;
-      if (k === '~') continue;
+      if (k === '~' || k === '=') continue;
       // le mur du quai : contre l'eau, côté terre (sa face regarde l'eau)
-      if (k !== '=') {
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (!waterAt(i + dx, j + dz)) continue;
-          const bx = cx + dx * (CELL / 2 - 2), bz = cz + dz * (CELL / 2 - 2);
-          m.box(bx, WATER_Y, bz, dx ? 4 : CELL, -WATER_Y - 0.4, dz ? 4 : CELL, TONES.stone);
-          rail(m, bx, bz, dx, dz);
-        }
-        continue;
-      }
-      // le pont : un tablier, des parapets sur les bords qui dominent l'eau
-      m.box(cx, -SLAB, cz, CELL, SLAB - 0.4, CELL, TONES.stone);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         if (!waterAt(i + dx, j + dz)) continue;
-        rail(m, cx + dx * (CELL / 2 - 2), cz + dz * (CELL / 2 - 2), dx, dz);
+        const bx = cx + dx * (CELL / 2 - 2), bz = cz + dz * (CELL / 2 - 2);
+        m.box(bx, WATER_Y, bz, dx ? 4 : CELL, -WATER_Y - 0.4, dz ? 4 : CELL, TONES.stone);
+        rail(m, bx, bz, dx, dz);
       }
-      // des piles sous le tablier, toutes les trois cases, sur toute la largeur du pont
-      const along = kindIs(i - 1, j, '=') || kindIs(i + 1, j, '=') ? i : j;
-      if (along % 3 === 0) m.box(cx, WATER_Y, cz, kindIs(i - 1, j, '=') || kindIs(i + 1, j, '=') ? 12 : CELL, -WATER_Y - SLAB, kindIs(i - 1, j, '=') || kindIs(i + 1, j, '=') ? CELL : 12, TONES.stone);
     }
-    const mesh = new THREE.Mesh(m.geometry(), new THREE.MeshBasicMaterial({ vertexColors: true }));
+    // les ponts : de pierre à arches (le Pont Neuf et ses cousins) ou une passerelle de fonte
+    for (const br of findBridges(city)) addBridge(m, br, WATER_Y);
+    const mesh = new THREE.Mesh(m.geometry(), warped(new THREE.MeshBasicMaterial({ vertexColors: true })));
     root.add(mesh);
   }
 
@@ -385,16 +404,18 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     g.computeBoundingSphere();
     const mat = new THREE.ShaderMaterial({
       uniforms: { map: { value: flatTex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uCut: { value: 0 }, uH: { value: H }, uSlice: { value: new THREE.Color(PAL.nuit2) } },
-      vertexShader: BUILD_VS, fragmentShader: BUILD_FS, side: THREE.FrontSide,
+      vertexShader: BUILD_VS(warp.WARP_GLSL), fragmentShader: BUILD_FS, side: THREE.FrontSide,
     });
     const mesh = new THREE.Mesh(g, mat);
     mesh.position.set(ox, 0, oz);
     root.add(mesh);
     // les huit coins de la boîte englobante (pour savoir si l'immeuble cache Pierre)
     const hTop = H + 36 + 24;
-    const corners = [];
-    for (const x of [ox, ox + CELL]) for (const z of [oz, oz + CELL]) for (const y of [0, hTop]) corners.push(x, y, z);
-    const b = { i, j, n, top: hTop, mesh, mat, step: () => steps.shift()(), done: () => !steps.length, cut: 0, target: 0, cx: ox + CELL / 2, cz: oz + CELL / 2, corners };
+    // (en coordonnées du monde, déformées : c'est ce que voit la caméra ; cx, cz restent ceux de la grille)
+    const corners = [], wc = [];
+    for (const x of [ox, ox + CELL]) for (const z of [oz, oz + CELL]) { warp.fwd(x, z, wc); for (const y of [0, hTop]) corners.push(wc[0], y, wc[1]); }
+    warp.fwd(ox + CELL / 2, oz + CELL / 2, wc);
+    const b = { i, j, n, top: hTop, mesh, mat, step: () => steps.shift()(), done: () => !steps.length, cut: 0, target: 0, cx: ox + CELL / 2, cz: oz + CELL / 2, wx: wc[0], wz: wc[1], corners };
     buildings.push(b);
     return b;
   }
@@ -411,20 +432,25 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   }
 
   // ─── Notre-Dame, d'un seul bloc ───
-  if (city.cathedral) { onProgress('Notre-Dame…'); await tick(true); root.add(buildCathedral(THREE, city.cathedral)); }
+  if (city.cathedral) {
+    onProgress('Notre-Dame…'); await tick(true);
+    const nd = buildCathedral(THREE, city.cathedral);
+    nd.traverse(o => { if (o.material) warped(o.material); });
+    root.add(nd);
+  }
 
   // ─── Le mobilier ───
   onProgress('Le mobilier…');
   await tick(true);
   const geos = buildPropGeometries(THREE);
-  const propMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-  const lamps = [];
+  const propMat = warped(new THREE.MeshBasicMaterial({ vertexColors: true }));
+  const lamps = [], lampsW = [];
   {
     const lists = {};
     for (const [type, px, py, variant, rot = 0] of city.props) {
       const key = type === 'tree' ? 'tree' + ((variant | 0) % 6) : type;
       (lists[key] ||= []).push([px, py, type === 'bench' ? rot * Math.PI / 2 : hash(px, py, 5) * Math.PI * 2]);
-      if (PROP_TYPES[type]?.light) lamps.push([px, py]);
+      if (PROP_TYPES[type]?.light) { lamps.push([px, py]); const w2 = warp.fwd(px, py); lampsW.push([w2[0], w2[1]]); }
     }
     const dummy = new THREE.Object3D();
     for (const [key, list] of Object.entries(lists)) {
@@ -464,7 +490,8 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     }
     return true;
   }
-  /* Chaque image : un immeuble entre la caméra et Pierre, dont la silhouette
+  /* (px, pz : la position de Pierre dans le monde déformé.)
+     Chaque image : un immeuble entre la caméra et Pierre, dont la silhouette
      (la boîte, projetée à l'écran) recouvre le disque de rayon `radius`
      autour de Pierre, est coupé au rez-de-chaussée. cutting : false rend tout. */
   function updateCuts(camera, px, pz, radius, dt, cutting = true) {
@@ -486,9 +513,9 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     const cx = camera.position.x - px, cz = camera.position.z - pz, cl = Math.hypot(cx, cz) || 1, fx = cx / cl, fz = cz / cl;
     for (const b of buildings) {
       let want = 0;
-      const dx = b.cx - px, dz = b.cz - pz;
+      const dx = b.wx - px, dz = b.wz - pz;
       // la caméra dans (ou contre) un immeuble : il s'abaisse, sinon on ne voit plus rien
-      if (cutting && (b.cx - camera.position.x) ** 2 + (b.cz - camera.position.z) ** 2 < 100 * 100 && camera.position.y < b.top + 10) want = 1;
+      if (cutting && (b.wx - camera.position.x) ** 2 + (b.wz - camera.position.z) ** 2 < 100 * 100 && camera.position.y < b.top + 10) want = 1;
       if (!want && cutting && dx * dx + dz * dz < MAX_CUT_DIST * MAX_CUT_DIST && dx * fx + dz * fz > -35) {
         // près de la droite caméra → Pierre (sinon il ne cache rien de ce qu'on regarde)
         const side = Math.abs(dx * fz - dz * fx);
@@ -500,8 +527,10 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
             if (o[2] <= 0.1) { behind = true; break; }
             bx0 = Math.min(bx0, o[0]); bx1 = Math.max(bx1, o[0]); by0 = Math.min(by0, o[1]); by1 = Math.max(by1, o[1]);
           }
+          // un coin derrière la caméra : l'immeuble est contre elle et cache tout ce qui est dans l'axe
+          if (behind) { if (side < radius + 40 && dx * fx + dz * fz < cl + 60) want = 1; }
           // … et qui se voit à l'écran (un immeuble hors du champ ne baisse pas)
-          if (!behind && bx0 < x1 && bx1 > x0 && by0 < y1 && by1 > y0 && bx1 > -1 && bx0 < 1 && by1 > -1 && by0 < 1 && hullHits(b, c, x0, y0, x1, y1)) want = 1;
+          else if (bx0 < x1 && bx1 > x0 && by0 < y1 && by1 > y0 && bx1 > -1 && bx0 < 1 && by1 > -1 && by0 < 1 && hullHits(b, c, x0, y0, x1, y1)) want = 1;
         }
       }
       b.target = want;
@@ -540,11 +569,11 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   function setLights(x, z, t) {
     if (t - lightAt > 0.2) {
       lightAt = t;
-      const near = lamps.map(([lx, lz], i) => [lx, lz, i, (lx - x) ** 2 + (lz - z) ** 2]).filter(l => l[3] < 700 * 700).sort((p, q) => p[3] - q[3]).slice(0, 16);
+      const near = lampsW.map(([lx, lz], i) => [lx, lz, i, (lx - x) ** 2 + (lz - z) ** 2]).filter(l => l[3] < 700 * 700).sort((p, q) => p[3] - q[3]).slice(0, 16);
       lightU.value.forEach((v, k) => { const l = near[k]; if (l) v.set(l[0], l[1], 230, 1); else v.w = 0; });
       lightU.near = near;
     }
     (lightU.near || []).forEach((l, k) => { lightU.value[k].w = 0.9 + 0.1 * Math.sin(t * 7 + l[2] * 1.7) * Math.sin(t * 3.1 + l[2]); });
   }
-  return { root, buildings, chimneys, lamps, palTex, indexOfRGB, updateCuts, paintSome, setTime, setLights, dispose };
+  return { root, buildings, chimneys, lamps, warp, palTex, indexOfRGB, updateCuts, paintSome, setTime, setLights, dispose };
 }

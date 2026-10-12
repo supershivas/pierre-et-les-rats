@@ -2,9 +2,9 @@
    grande image (une case = un losange de 120 × 60 px). Les traces de pas s'y
    impriment pixel par pixel ; la neige qui tombe les recouvre peu à peu
    (on repeint la couleur d'origine, que `colorAt` sait retrouver). */
-import { RGB, PAL } from './palette.js?v=2.1.0';
-import { CELL, FLOOR } from './scale.js?v=2.1.0';
-import { hash3 } from './city.js?v=2.1.0';
+import { RGB, PAL } from './palette.js?v=2.2.0';
+import { CELL, FLOOR } from './scale.js?v=2.2.0';
+import { hash3 } from './city.js?v=2.2.0';
 
 /* La couleur du sol en un point (coordonnées monde, z = 0), par la clé de
    PAL. Le moteur 3D l'appelle pour chaque pixel de sa grande texture : tout

@@ -7,8 +7,8 @@
      { "w": 26, "h": 22, "seed": 1871, "start": [x, y],
        "rows": ["0023340…", …],   // un chiffre par colonne, 0 à 7
        "props": [["lamp", 315, 642, 0], …] }   // le mobilier : type, x, y (monde), variante */
-import { MAX_FLOORS } from './scale.js?v=2.1.0';
-import { generateProps } from './props.js?v=2.1.0';
+import { MAX_FLOORS } from './scale.js?v=2.2.0';
+import { generateProps } from './props.js?v=2.2.0';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
@@ -138,17 +138,22 @@ function findGrates(city) {
 }
 
 
-/* Paris en 1871, au bord de la Seine (88 × 72 cases, v2.1.0) : le fleuve, large de
-   7 cases, traverse tout le quartier d'ouest en est sans être coupé, à 70 px
-   (3,5 m) sous les quais ; il se partage autour de l'île de la Cité (28 × 8
-   cases), où Notre-Dame (un seul bloc, `N`) se dresse devant son parvis. Des
-   quais plantés de chaque côté, six ponts.
-   Quatre grands boulevards est-ouest et trois nord-sud, droits, de 4 cases
-   (arbres, réverbères, bancs), bordés d'immeubles haussmanniens de 5 à 7
-   niveaux ; des rues de 2 cases entre eux. Les îlots restants : haussmanniens
-   autour d'une ruelle centrale (avec des passages couverts), ou « vieux
-   quartier » de ruelles d'une case entre des maisons basses (1 à 4 niveaux).
-   Quelques îlots deviennent squares. Puis le mobilier urbain (props.js). */
+/* Paris en 1871, au bord de la Seine (88 × 72 cases ; tracé à la main d'après
+   le plan, v2.2.0). Sur la grille, la Seine est une bande droite : c'est le
+   moteur 3D qui la plie (warp.js). Le fleuve, large de 7 cases, traverse tout
+   le quartier d'ouest en est, à 70 px (3,5 m) sous les quais, et se partage
+   en deux bras autour de l'île de la Cité (en amande, bras nord de 5 cases,
+   bras sud de 3) ; Notre-Dame, d'un seul bloc (`N`), se dresse à l'est de
+   l'île devant son parvis. Plus à l'est, l'île Saint-Louis. Des quais plantés,
+   quatre grands ponts de pierre (Royal, Neuf, au Change et Saint-Michel,
+   Marie et la Tournelle, Austerlitz) sur les grands boulevards nord-sud, trois
+   passerelles de fonte (des Arts, d'Arcole, Saint-Louis…).
+   Cinq boulevards est-ouest de 4 cases (dont Rivoli, au nord du fleuve, et
+   Saint-Germain, au sud), des rues de 2 cases, bordés d'immeubles
+   haussmanniens de 5 à 7 niveaux ; le vieux quartier (ruelles d'une case,
+   maisons basses) sur l'île, au sud-ouest (le Quartier latin) et au nord-est
+   (le Marais). Trois squares (les Tuileries, le Luxembourg, le Jardin des
+   Plantes). Puis le mobilier urbain (props.js). */
 export function generateQuarter(seed = 1871, w = 88, h = 72) {
   w = Math.max(60, w); h = Math.max(56, h);
   const r = rng(seed);
@@ -158,18 +163,30 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
   const inb = (x, y) => x >= 0 && y >= 0 && x < w && y < h;
   const put = (x, y, kind, floors = 0) => { if (inb(x, y)) { k[y][x] = kind; g[y][x] = floors; } };
   const free = (x, y) => inb(x, y) && g[y][x] === -1;
+  const sx = f => Math.round(f * w / 88);                 // les repères sont donnés pour 88 colonnes
+  const smooth = (a, b, t) => { t = Math.max(0, Math.min(1, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
 
   const c = Math.round(h * 0.5);                          // l'axe de la Seine
-  const hb = [0.09, 0.24, 0.68, 0.83].map(f => Math.round(h * f));        // les boulevards est-ouest (4 rangées)
-  const vb = [0.18, 0.43, 0.76].map(f => Math.round(w * f));              // les boulevards nord-sud (4 colonnes)
-  const ponts = [0.05, 0.34, 0.91].map(f => Math.round(w * f));           // des rues de 2 cases, avec un pont
-  const ix0 = Math.round(w * 0.3), ix1 = ix0 + 27;        // l'île
-  const onIsland = x => x >= ix0 && x <= ix1;
-  const waterN = x => (onIsland(x) ? c - 7 : c - 3), waterS = x => (onIsland(x) ? c + 6 : c + 3);
+  const hb = [2, 10, 22, 55, 66].map(y => Math.round(y * h / 72));       // les boulevards est-ouest (4 rangées) : Rivoli, 3e
+  const vb = [14, 25, 35, 58, 80].map(sx);                // les boulevards nord-sud (4 colonnes) : leurs ponts
+  const ponts = [19, 41, 71].map(sx);                     // des rues de 2 cases, avec une passerelle
+  // l'île de la Cité (en amande) et l'île Saint-Louis : le nombre de rangées de chaque colonne, collées au bras nord
+  const cx0 = sx(23), cx1 = cx0 + 27, sl0 = cx1 + 5, sl1 = sl0 + 15;
+  // sous un pont, la rive est droite : toutes les colonnes d'un pont ont la forme de la première
+  const spans = [...vb.map(x => [x, x + 3]), ...ponts.map(x => [x, x + 1])];
+  const snap = x => { for (const [a, b] of spans) if (x >= a && x <= b) return a; return x; };
+  const nCite = x => { x = snap(x); return x < cx0 || x > cx1 ? 0 : 1 + Math.round(7 * smooth(0, 0.5, (x - cx0) / 27)); };
+  const nSL = x => { x = snap(x); return x < sl0 || x > sl1 ? 0 : 3 + Math.round(3 * Math.sin(Math.PI * (x - sl0 + 0.5) / 16)); };
+  const islandN = x => nCite(x) || nSL(x);
+  const onIsland = x => islandN(x) > 0;
+  // entre les deux îles, un chenal d'un bras à l'autre
+  const nChan = x => (x > cx1 && x < sl0 ? Math.max(nCite(cx1), nSL(sl0)) : 0);
+  const waterN = () => c - 3, waterS = x => (onIsland(x) ? c + 4 + islandN(x) : nChan(x) ? c + 4 + nChan(x) : c + 3);
+  const onCite = x => x >= cx0 && x <= cx1;
 
-  // ─ La Seine, l'île, les quais ─
+  // ─ La Seine, les îles, les quais ─
   for (let x = 0; x < w; x++) for (let y = waterN(x); y <= waterS(x); y++) put(x, y, '~');
-  for (let x = ix0; x <= ix1; x++) for (let y = c - 4; y <= c + 3; y++) { k[y][x] = '.'; g[y][x] = -1; }
+  for (let x = 0; x < w; x++) for (let y = c + 2; y < c + 2 + islandN(x); y++) { k[y][x] = '.'; g[y][x] = -1; }
   for (let x = 0; x < w; x++) {
     const xs = [Math.max(0, x - 1), x, Math.min(w - 1, x + 1)];
     const top = Math.min(...xs.map(waterN)), bottom = Math.max(...xs.map(waterS));
@@ -181,7 +198,7 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
   for (const x0 of vb) for (let x = x0; x < x0 + 4; x++) for (let y = 0; y < h; y++) {
     if (k[y][x] === '~') put(x, y, '='); else put(x, y, 'B');
   }
-  // ─ Les rues de 2 cases : avec un pont, ou (dans les grands vides) sans ─
+  // ─ Les rues de 2 cases : avec une passerelle, ou (dans les grands vides) sans ─
   const rue = (x0, bridge) => {
     for (let x = x0; x < x0 + 2; x++) for (let y = 0; y < h; y++) {
       if (k[y][x] === '~') { if (bridge) put(x, y, '='); continue; }
@@ -195,14 +212,25 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
     const a = cols[i][1] + 1, b = cols[i + 1][0] - 1;
     if (b - a + 1 > 15) rue(Math.round((a + b) / 2) - 1, false);
   }
+  // une rue est-ouest au milieu des grands îlots du sud, quand rien ne la coupe
+  {
+    const rows = [hb[2] + 4, hb[3]];                                     // entre Rivoli.. non : entre les quais et Saint-Germain
+    void rows;
+    const y0 = Math.round((c + 8 + hb[3] - 2) / 2) - 1;
+    for (let y = y0; y < y0 + 2; y++) for (let x = 0; x < w; x++) if (free(x, y)) put(x, y, '.');
+  }
+  // le pont Saint-Louis : une passerelle d'une île à l'autre, d'est en ouest
+  for (let x = cx1 + 1; x < sl0; x++) for (const y of [c + 2, c + 3]) put(x, y, '=');
 
-  // ─ Notre-Dame : un bloc de 8 × 4 cases sur l'île, la façade à l'ouest, sur son parvis ─
-  const nd0 = ix1 - 7;
-  for (let x = ix0; x <= ix1; x++) for (const y of [c - 4, c - 3, c + 2, c + 3]) put(x, y, '.');   // le tour de l'île
-  for (let x = nd0 - 4; x < nd0; x++) for (let y = c - 4; y <= c + 3; y++) put(x, y, '.');          // le parvis
-  for (let x = nd0; x <= ix1; x++) for (let y = c - 2; y <= c + 1; y++) put(x, y, 'N', 5);          // la nef et le chœur
-  for (const y of [c - 2, c + 1]) put(nd0, y, 'N', 8);                                              // les tours
-  for (const y of [c - 1, c]) put(nd0, y, 'N', 6);                                                  // entre elles, la rose
+  // ─ Notre-Dame : un bloc de 8 × 4 cases à l'est de l'île, la façade à l'ouest, sur son parvis ─
+  const nd0 = cx1 - 7, ndTop = c + 4;
+  for (let x = nd0 - 4; x <= cx1; x++) for (const y of [c + 2, c + 3, c + 8, c + 9]) if (k[y][x] !== 'B' && k[y][x] !== '=') put(x, y, '.');   // le tour de l'île
+  for (let x = nd0 - 4; x < nd0; x++) for (let y = c + 2; y <= c + 9; y++) if (k[y][x] !== 'B' && k[y][x] !== '=') put(x, y, '.');             // le parvis
+  for (let x = nd0; x <= cx1; x++) for (let y = ndTop; y < ndTop + 4; y++) put(x, y, 'N', 5);                 // la nef et le chœur
+  for (const y of [ndTop, ndTop + 3]) put(nd0, y, 'N', 8);                                                    // les tours
+  for (const y of [ndTop + 1, ndTop + 2]) put(nd0, y, 'N', 6);                                                // entre elles, la rose
+  // le bord des îles : une ruelle sur les rives
+  for (let x = 0; x < w; x++) if (onIsland(x)) for (const y of [c + 2, c + 1 + islandN(x)]) if (free(x, y)) put(x, y, '.');
 
   // ─ Les îlots : ce qui reste à bâtir, par groupes de cases ─
   const blocks = [];
@@ -218,13 +246,13 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
     }
     blocks.push(b);
   }
-  // les squares : trois îlots de taille moyenne, loin les uns des autres
+  // les squares : les Tuileries (nord-ouest), le Luxembourg (sud-ouest), le Jardin des Plantes (sud-est)
   const gardenSet = new Set();
   const gardens = [];
-  for (const [fx, fy] of [[0.5, 0.2], [0.25, 0.8], [0.82, 0.78]]) {
+  for (const [fx, fy] of [[sx(7), c - 8], [sx(8), c + 17], [sx(74), c + 17]]) {
     const pick = blocks
-      .filter(b => !gardenSet.has(b) && b.cells.length >= 30 && b.cells.length <= 150 && !b.cells.every(([x]) => onIsland(x)) && b.cells.every(([, y]) => y < c - 8 || y > c + 8))
-      .sort((p, q) => Math.hypot((p.x0 + p.x1) / 2 - w * fx, (p.y0 + p.y1) / 2 - h * fy) - Math.hypot((q.x0 + q.x1) / 2 - w * fx, (q.y0 + q.y1) / 2 - h * fy))[0];
+      .filter(b => !gardenSet.has(b) && b.cells.length >= 24 && b.cells.length <= 180 && !b.cells.some(([x, y]) => onIsland(x) && y > c && y < c + 12))
+      .sort((p, q) => Math.hypot((p.x0 + p.x1) / 2 - fx, (p.y0 + p.y1) / 2 - fy) - Math.hypot((q.x0 + q.x1) / 2 - fx, (q.y0 + q.y1) / 2 - fy))[0];
     if (pick) gardenSet.add(pick);
   }
 
@@ -234,7 +262,7 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
     const inBlock = (x, y) => mine.has(y * w + x);
     if (gardenSet.has(b)) { for (const [x, y] of b.cells) put(x, y, '.'); gardens.push(b); return; }
     const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-    const old = b.cells.every(([x, y]) => onIsland(x) && y >= c - 4 && y <= c + 3) || (cx < w * 0.45 && cy > c) || (cx > w * 0.72 && cy < c * 0.6) || hash(bi, seed, 5) < 0.26;
+    const old = b.cells.some(([x, y]) => onIsland(x) && y > c && y < c + 12) || (cx < w * 0.42 && cy > c) || (cx > w * 0.62 && cy < c) || hash(bi, seed, 5) < 0.2;
     // la distance de chaque case au bord de l'îlot (1 : contre une rue)
     const edge = new Map(), q = [];
     for (const [x, y] of b.cells) if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !inBlock(x + dx, y + dy))) { edge.set(y * w + x, 1); q.push([x, y]); }
@@ -305,9 +333,10 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
       if (inb(nx, ny) && k[ny][nx] !== '~' && k[ny][nx] !== '=' && k[ny][nx] !== 'N' && g[ny][nx] > 0) { g[ny][nx] = 0; if (k[ny][nx] === 'P') k[ny][nx] = '.'; }
     }
   }
+  void onCite;
 
   const rows = g.map(row => row.join('')), ground = k.map(row => row.join(''));
-  const data = { w, h, seed, start: [vb[1] + 2, hb[1] + 2], rows, ground };
+  const data = { w, h, seed, start: [vb[2] + 2, hb[2] + 2], rows, ground };
   data.props = generateProps(makeCity(data), { gardens: gardens.map(b => b.cells) });
   return data;
 }

@@ -3,7 +3,7 @@
    cônes, des prismes, et colore chaque triangle d'après son orientation (trois
    tons : éclairé par la lune, mi-ombre, ombre ; le dessus peut être sous la
    neige). Le résultat est une seule géométrie à couleurs de sommets. */
-import { PAL } from './palette.js?v=2.1.0';
+import { PAL } from './palette.js?v=2.2.0';
 
 // d'où vient la lumière : du ciel, un peu du côté +z (le sud, comme dans le dessin 2D)
 const LIGHT = (() => { const l = [-0.3, 0.7, 0.65], n = Math.hypot(...l); return l.map(v => v / n); })();
@@ -98,6 +98,12 @@ export function createMesher(THREE) {
       };
       if (ends.a) cap(0);
       if (ends.b) cap(len);
+    },
+    // un triangle (A, B, C : [x, y, z]) ; over.out pour l'orienter vers l'extérieur du solide
+    tri(A, B, C, tones = TONES.stone, over = {}) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute([...A, ...B, ...C], 3));
+      add(g, new THREE.Matrix4(), tones, over);
     },
     geometry() {
       const g = new THREE.BufferGeometry();

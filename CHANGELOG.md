@@ -1,5 +1,12 @@
 # Historique
 
+## 2.2.0 — 2026-10-12
+- Une carte organique, tracée à la main d'après le plan de Paris : la Seine serpente, l'île de la Cité (avec Notre-Dame sur son parvis) et l'île Saint-Louis ont leur forme d'amande, et la grille de la ville est déformée : quais, boulevards et îlots courbes, immeubles un peu de travers
+- Des ponts inspirés du Pont Neuf : de grands ponts de pierre (5 à 7 arches en plein cintre, piles à avant-bec, demi-lunes au-dessus des piles, corniche, parapet), des ponts de pierre plus courts aux arches surbaissées, des passerelles de fonte à garde-corps de barreaux
+- La Seine se partage en deux bras autour de la Cité, avec un chenal entre les deux îles ; cinq boulevards est-ouest et cinq nord-sud, trois squares (Tuileries, Luxembourg, Jardin des Plantes)
+- Pierre marche à la même vitesse partout, malgré la déformation ; la caméra, les lumières et la coupe des immeubles suivent le monde déformé
+- Correction : un immeuble collé à la caméra (un coin passe derrière elle) se baisse de nouveau quand il cache Pierre
+
 ## 2.1.0 — 2026-10-12
 - Une ville près de quatre fois plus grande (88 × 72 cases) : quatre boulevards est-ouest, trois nord-sud, des rues, des squares, six ponts
 - La Seine fait sept cases de large, traverse toute la carte sans être coupée et coule à 3,5 m sous les quais ; des piles sous les ponts, des garde-corps sur les quais
