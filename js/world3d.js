@@ -18,17 +18,17 @@
    - La grille est déformée (warp.js, v2.2.0) : tout ce qui est en coordonnées de la
      grille passe par warp() dans son shader ; la caméra, les lumières et la coupe
      des immeubles sont en coordonnées du monde déformé. */
-import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.2.0';
-import { CELL, FLOOR } from './scale.js?v=2.2.0';
-import { hash, hash3 } from './city.js?v=2.2.0';
-import { renderColumn } from './buildings.js?v=2.2.0';
-import { makeGroundColor } from './ground.js?v=2.2.0';
-import { createMesher, TONES } from './geo.js?v=2.2.0';
-import { buildPropGeometries } from './props3d.js?v=2.2.0';
-import { buildCathedral } from './cathedral3d.js?v=2.2.0';
-import { PROP_TYPES } from './props.js?v=2.2.0';
-import { makeWarp } from './warp.js?v=2.2.0';
-import { findBridges, addBridge } from './bridges3d.js?v=2.2.0';
+import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.3.0';
+import { CELL, FLOOR } from './scale.js?v=2.3.0';
+import { hash, hash3 } from './city.js?v=2.3.0';
+import { renderColumn } from './buildings.js?v=2.3.0';
+import { makeGroundColor } from './ground.js?v=2.3.0';
+import { createMesher, TONES } from './geo.js?v=2.3.0';
+import { buildPropGeometries } from './props3d.js?v=2.3.0';
+import { buildCathedral } from './cathedral3d.js?v=2.3.0';
+import { PROP_TYPES } from './props.js?v=2.3.0';
+import { makeWarp } from './warp.js?v=2.3.0';
+import { findBridges, addBridge } from './bridges3d.js?v=2.3.0';
 
 export const WATER_Y = -70;                    // la Seine, 3,5 m (plus d'un étage) sous les quais
 const MAX_CUT_DIST = 900;
@@ -108,9 +108,14 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   const root = new THREE.Group();
   const GW = city.w * CELL, GH = city.h * CELL;
   const warp = makeWarp(city);
+  // les sommets de la grille déformée, lus par les shaders (voir warp.js)
+  const warpTex = new THREE.DataTexture(warp.data, warp.nx, warp.ny, THREE.RGBAFormat, THREE.FloatType);
+  warpTex.magFilter = warpTex.minFilter = THREE.NearestFilter; warpTex.generateMipmaps = false; warpTex.needsUpdate = true;
+  const warpU = { value: warpTex };
   // un matériau de base de three.js (couleurs de sommets, instances) dont les sommets passent par la grille déformée
   const warped = mat => {
     mat.onBeforeCompile = shader => {
+      shader.uniforms.uWarp = warpU;
       shader.vertexShader = shader.vertexShader
         .replace('void main() {', `${warp.WARP_GLSL}\nvoid main() {`)
         .replace('#include <project_vertex>', `
@@ -175,16 +180,19 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     if ((y & 31) === 0) await tick();
   }
   const lightU = { value: Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 1, 0)) };
-  const groundMat = new THREE.ShaderMaterial({ uniforms: { map: { value: byteTexture(gdata, GW, GH) }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU }, vertexShader: GROUND_VS(warp.WARP_GLSL), fragmentShader: INDEXED_FS });
+  const groundMat = new THREE.ShaderMaterial({ uniforms: { map: { value: byteTexture(gdata, GW, GH) }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uWarp: warpU }, vertexShader: GROUND_VS(warp.WARP_GLSL), fragmentShader: INDEXED_FS });
   {
     const pos = [], uv = [];
-    const quad = (x0, z0, y, u0, v0) => {
-      const x1 = x0 + CELL, z1 = z0 + CELL, ua = u0 / GW, ub = (u0 + CELL) / GW, va = v0 / GH, vb = (v0 + CELL) / GH;
+    // chaque case en 2 × 2 morceaux : la grille déformée (warp.js) plie les côtés, pas l'intérieur
+    const H2 = CELL / 2;
+    const quad1 = (x0, z0, y, u0, v0, e) => {
+      const x1 = x0 + e, z1 = z0 + e, ua = u0 / GW, ub = (u0 + e) / GW, va = v0 / GH, vb = (v0 + e) / GH;
       pos.push(x0, y, z0, x0, y, z1, x1, y, z0, x1, y, z0, x0, y, z1, x1, y, z1);
       uv.push(ua, va, ua, vb, ub, va, ub, va, ua, vb, ub, vb);
     };
+    const quad = (x0, z0, y, u0, v0) => { for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) quad1(x0 + a * H2, z0 + b * H2, y, u0 + a * H2, v0 + b * H2, H2); };
     const wpos = [];                                  // l'eau, à part
-    const wquad = (x0, z0) => { const x1 = x0 + CELL, z1 = z0 + CELL, y = WATER_Y; wpos.push(x0, y, z0, x0, y, z1, x1, y, z0, x1, y, z0, x0, y, z1, x1, y, z1); };
+    const wquad = (x0, z0) => { for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) { const xa = x0 + a * H2, za = z0 + b * H2, xb = xa + H2, zb = za + H2, y = WATER_Y; wpos.push(xa, y, za, xa, y, zb, xb, y, za, xb, y, za, xa, y, zb, xb, y, zb); } };
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
       const k = city.kind(i, j);
       if (k === '~' || k === '=') wquad(i * CELL, j * CELL);   // (sous un pont aussi)
@@ -214,7 +222,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     const wg = new THREE.BufferGeometry();
     wg.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
     waterMat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: wtex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uT: { value: 0 }, uBase: { value: PAL_INDEX.nuit2 }, uFleck: { value: PAL_INDEX.neigeO } },
+      uniforms: { map: { value: wtex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uWarp: warpU, uT: { value: 0 }, uBase: { value: PAL_INDEX.nuit2 }, uFleck: { value: PAL_INDEX.neigeO } },
       vertexShader: `${warp.WARP_GLSL} varying vec2 vW; varying vec3 vP; void main() { vW = position.xz; vec3 p = position; p.xz = warp(p.xz); vP = p; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
       fragmentShader: `
         uniform sampler2D map; uniform sampler2D pal; uniform float palN; uniform float uT; uniform float uBase; uniform float uFleck;
@@ -403,7 +411,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     g.setAttribute('aRoof', new THREE.Float32BufferAttribute(roofF, 1));
     g.computeBoundingSphere();
     const mat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: flatTex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uCut: { value: 0 }, uH: { value: H }, uSlice: { value: new THREE.Color(PAL.nuit2) } },
+      uniforms: { map: { value: flatTex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uWarp: warpU, uCut: { value: 0 }, uH: { value: H }, uSlice: { value: new THREE.Color(PAL.nuit2) } },
       vertexShader: BUILD_VS(warp.WARP_GLSL), fragmentShader: BUILD_FS, side: THREE.FrontSide,
     });
     const mesh = new THREE.Mesh(g, mat);
@@ -575,5 +583,5 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     }
     (lightU.near || []).forEach((l, k) => { lightU.value[k].w = 0.9 + 0.1 * Math.sin(t * 7 + l[2] * 1.7) * Math.sin(t * 3.1 + l[2]); });
   }
-  return { root, buildings, chimneys, lamps, warp, palTex, indexOfRGB, updateCuts, paintSome, setTime, setLights, dispose };
+  return { root, buildings, chimneys, lamps, warp, warpU, palTex, indexOfRGB, updateCuts, paintSome, setTime, setLights, dispose };
 }

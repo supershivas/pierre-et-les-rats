@@ -8,15 +8,15 @@
    l'est, y (ici z pour three.js) vers le sud, le haut est y pour three.js.
    L'image est calculée en petite résolution (environ 250 px de haut) puis
    agrandie d'un facteur entier sans lissage : pixels nets, palette exacte. */
-import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.2.0';
-import { CELL } from './scale.js?v=2.2.0';
-import { loadThree } from './three-lib.js?v=2.2.0';
-import { buildWorld, tick } from './world3d.js?v=2.2.0';
-import { createSwarm, ST } from './swarm.js?v=2.2.0';
-import { PROP_TYPES } from './props.js?v=2.2.0';
-import { makeGroundColor } from './ground.js?v=2.2.0';
-import { hash } from './city.js?v=2.2.0';
-import { drawNote } from './sprites.js?v=2.2.0';
+import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.3.0';
+import { CELL } from './scale.js?v=2.3.0';
+import { loadThree } from './three-lib.js?v=2.3.0';
+import { buildWorld, tick } from './world3d.js?v=2.3.0';
+import { createSwarm, ST } from './swarm.js?v=2.3.0';
+import { PROP_TYPES } from './props.js?v=2.3.0';
+import { makeGroundColor } from './ground.js?v=2.3.0';
+import { hash } from './city.js?v=2.3.0';
+import { drawNote } from './sprites.js?v=2.3.0';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const PIERRE_R = 5;
@@ -140,7 +140,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   for (const a of [trPosAttr, trBornAttr, trToneAttr]) a.setUsage(THREE.DynamicDrawUsage);
   trGeo.setAttribute('position', trPosAttr); trGeo.setAttribute('born', trBornAttr); trGeo.setAttribute('tone', trToneAttr);
   const trMat = new THREE.ShaderMaterial({
-    uniforms: { now: { value: 0 }, life: { value: TRACE_LIFE }, size: { value: 1 }, pal: palUniform, palN: { value: PALETTE.length } },
+    uniforms: { uWarp: world.warpU, now: { value: 0 }, life: { value: TRACE_LIFE }, size: { value: 1 }, pal: palUniform, palN: { value: PALETTE.length } },
     vertexShader: `
       ${W.WARP_GLSL}
       attribute float born; attribute float tone;
@@ -401,7 +401,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   smGeo.setAttribute('position', new THREE.BufferAttribute(smPos, 3));
   smGeo.setAttribute('tone', new THREE.BufferAttribute(smTone, 1));
   const smMat = new THREE.ShaderMaterial({
-    uniforms: { pal: palUniform, palN: { value: PALETTE.length }, size: { value: 2 } },
+    uniforms: { uWarp: world.warpU, pal: palUniform, palN: { value: PALETTE.length }, size: { value: 2 } },
     vertexShader: `${W.WARP_GLSL} attribute float tone; uniform float size; varying float vTone; void main() { vTone = tone; vec3 wp = position; wp.xz = warp(wp.xz); gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0); gl_PointSize = size; if (tone < 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); }`,
     fragmentShader: `uniform sampler2D pal; uniform float palN; varying float vTone; void main() { ${DITHER} gl_FragColor = vec4(texture2D(pal, vec2((vTone + 0.5) / palN, 0.5)).rgb, 1.0); }`,
   });

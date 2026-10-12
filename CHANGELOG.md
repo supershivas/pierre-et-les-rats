@@ -1,5 +1,10 @@
 # Historique
 
+## 2.3.0 — 2026-10-12
+- Une carte vraiment organique : la grille de la ville est un maillage de quadrilatères irréguliers (comme dans un plan relaxé), la Seine serpente sur toute la carte et la courbe entraîne les rues et les îlots
+- Les berges ondulent, les avenues se décalent de quelques cases d'un boulevard à l'autre (carrefours en baïonnette), de grands îlots sont coupés par des rues de biais ; deux boulevards ne sont plus que des rues de 2 cases
+- Les ponts restent des rectangles droits
+
 ## 2.2.0 — 2026-10-12
 - Une carte organique, tracée à la main d'après le plan de Paris : la Seine serpente, l'île de la Cité (avec Notre-Dame sur son parvis) et l'île Saint-Louis ont leur forme d'amande, et la grille de la ville est déformée : quais, boulevards et îlots courbes, immeubles un peu de travers
 - Des ponts inspirés du Pont Neuf : de grands ponts de pierre (5 à 7 arches en plein cintre, piles à avant-bec, demi-lunes au-dessus des piles, corniche, parapet), des ponts de pierre plus courts aux arches surbaissées, des passerelles de fonte à garde-corps de barreaux

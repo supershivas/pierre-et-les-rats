@@ -10,9 +10,9 @@
              des piles de pierre fines, un garde-corps à barreaux.
    Un pont est un rectangle de cases « = » ; l'axe est celui qui touche la terre
    à ses deux bouts. Repère local : a le long du pont, b en travers, y vers le haut. */
-import { CELL } from './scale.js?v=2.2.0';
-import { TONES } from './geo.js?v=2.2.0';
-import { hash } from './city.js?v=2.2.0';
+import { CELL } from './scale.js?v=2.3.0';
+import { TONES } from './geo.js?v=2.3.0';
+import { hash } from './city.js?v=2.3.0';
 
 // Les rectangles de cases « = » (un pont large = un seul rectangle)
 export function findBridges(city) {

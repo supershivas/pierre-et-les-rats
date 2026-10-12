@@ -80,19 +80,23 @@ planche gardent les tokens du design system.
   **tramés là où le décor les cache** (`GreaterDepth`, damier de 1 px), puis
   Pierre et rats. `?rats=2000` charge une nuée d'essai ; `pierreStats()` donne
   les temps (ms).
-- `js/warp.js` : **la grille déformée** (v2.2.0). La logique (rues, immeubles, nuée,
-  collisions, traces, sauvegarde) reste sur la grille carrée ; seul le rendu la
-  plie : un méandre de la Seine (rotation autour du fleuve, qui s'éteint avec la
-  distance) plus un champ lisse d'irrégularités, pour que quais et îlots ne soient
-  pas droits. `makeWarp(city)` : `fwd(x, y)` → [X, Y, jacobienne], `inv`,
-  `dirToLogical` / `dirToWorld`, et `WARP_GLSL` (la même fonction pour les shaders).
-  **Règle** : sol, eau, immeubles, mobilier, ponts, cathédrale, traces et fumée
-  passent par `warp()` dans leur shader vertex (les matériaux de base de three.js
-  par `warped()` de world3d.js) ; Pierre, les rats, les notes, la caméra, les
-  lumières et la coupe des immeubles sont calculés en CPU avec `fwd` (monde déformé).
-  Pierre marche à vitesse égale dans le monde déformé. Ne pas toucher aux
-  constantes sans refaire l'essai du déterminant (il doit rester entre 0,55 et 1,5,
-  sinon la grille se replie).
+- `js/warp.js` : **la grille déformée** (v2.2.0, maillage irrégulier depuis la v2.3.0).
+  La logique (rues, immeubles, nuée, collisions, traces, sauvegarde) reste sur la
+  grille carrée ; seul le rendu la plie. Chaque **sommet** de la grille a une
+  position dans le monde : le fleuve courbé (un cap φ(u) intégré, les rangées le
+  suivent, atténuées par `tanh` loin de lui), des ondulations, plus une secousse
+  par sommet (`K.J`) ; une case est un quadrilatère irrégulier, bilinéaire. Les
+  positions sont dans une texture flottante (`uWarp`, lue par `texelFetch` dans
+  `warp()`, GLSL) et dans un tableau (JS : `fwd(x, y)` → [X, Y, jacobienne], `inv` :
+  sommet le plus proche puis Newton, `dirToLogical` / `dirToWorld`). Les cases
+  repliées perdent leur secousse. **Règle** : sol, eau, immeubles, mobilier, ponts,
+  cathédrale, traces et fumée passent par `warp()` dans leur shader vertex (les
+  matériaux de base de three.js par `warped()` de world3d.js ; tout ShaderMaterial
+  reçoit `uWarp: world.warpU`) ; Pierre, les rats, les notes, la caméra, les
+  lumières et la coupe des immeubles sont calculés en CPU avec `fwd`. Pierre marche
+  à vitesse égale dans le monde déformé. Après tout changement des constantes `K`,
+  vérifier qu'aucune case n'est repliée et que l'aire reste entre ~0,2 et ~2,5 cases²
+  (essai : afficher le plan des quadrilatères).
 - `js/bridges3d.js` : les ponts (v2.2.0), d'après le Pont Neuf : `findBridges` (les
   rectangles de cases `=`, leur axe, leur sorte), `addBridge`. `neuf` : largeur ≥ 3
   cases, portée ≥ 5 : 5 à 7 arches en plein cintre, piles à avant-bec, corniche,
@@ -172,7 +176,11 @@ planche gardent les tokens du design system.
   maisons de 1 à 4 niveaux : les îles, le Quartier latin au sud-ouest, le Marais au
   nord-est). Sous un pont, la rive est droite (les colonnes d'un pont ont la forme
   de la première), pour que chaque pont soit un rectangle de cases `=`. Les
-  repères du générateur sont des colonnes et des rangées données pour 88 × 72.
+  repères du générateur sont des colonnes et des rangées données pour 88 × 72. Pour
+  casser l'orthogonalité (v2.3.0) : berges qui ondulent (droites sous un pont), avenues
+  qui se décalent de quelques cases entre deux boulevards (hors de la zone du fleuve),
+  boulevards est-ouest décalés par tronçon, deux boulevards ramenés à des rues de 2
+  cases, grands îlots coupés par une rue de 2 cases souvent de biais (en marches).
 - `js/props.js` : le mobilier urbain (réverbère, arbre, banc, colonne Morris,
   borne), tiré au sort par `generateProps`, gardé dans `data/ville.json`
   (« props » : type, x, y en monde, variante, **quart de tour** du banc ; les

@@ -7,8 +7,8 @@
      { "w": 26, "h": 22, "seed": 1871, "start": [x, y],
        "rows": ["0023340…", …],   // un chiffre par colonne, 0 à 7
        "props": [["lamp", 315, 642, 0], …] }   // le mobilier : type, x, y (monde), variante */
-import { MAX_FLOORS } from './scale.js?v=2.2.0';
-import { generateProps } from './props.js?v=2.2.0';
+import { MAX_FLOORS } from './scale.js?v=2.3.0';
+import { generateProps } from './props.js?v=2.3.0';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
@@ -181,7 +181,10 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
   const onIsland = x => islandN(x) > 0;
   // entre les deux îles, un chenal d'un bras à l'autre
   const nChan = x => (x > cx1 && x < sl0 ? Math.max(nCite(cx1), nSL(sl0)) : 0);
-  const waterN = () => c - 3, waterS = x => (onIsland(x) ? c + 4 + islandN(x) : nChan(x) ? c + 4 + nChan(x) : c + 3);
+  // les berges ondulent un peu (d'une case ou deux), sauf sous un pont, où elles restent droites
+  const wob = (x, amp, ph) => Math.round(amp * Math.sin(Math.PI * 2 * snap(x) / 37 + ph) + amp * 0.6 * Math.sin(Math.PI * 2 * snap(x) / 17 + ph * 2));
+  const waterN = x => c - 3 + Math.max(-2, Math.min(1, wob(x, 1.3, 1)));
+  const waterS = x => (onIsland(x) ? c + 4 + islandN(x) : nChan(x) ? c + 4 + nChan(x) : c + 3 + Math.max(-1, Math.min(2, wob(x, 1.4, 3.3))));
   const onCite = x => x >= cx0 && x <= cx1;
 
   // ─ La Seine, les îles, les quais ─
@@ -193,20 +196,31 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
     for (let y = top - 3; y < waterN(x); y++) put(x, y, 'B');
     for (let y = waterS(x) + 1; y <= bottom + 3; y++) put(x, y, 'B');
   }
-  // ─ Les boulevards, droits ─
-  for (let x = 0; x < w; x++) for (const y0 of hb) for (let y = y0; y < y0 + 4; y++) if (k[y][x] !== '~') put(x, y, 'B');
-  for (const x0 of vb) for (let x = x0; x < x0 + 4; x++) for (let y = 0; y < h; y++) {
-    if (k[y][x] === '~') put(x, y, '='); else put(x, y, 'B');
-  }
+  // ─ Les boulevards : droits au bord du fleuve (les ponts sont des rectangles), mais de loin en loin
+  //   un jarret : entre deux boulevards, une avenue se décale de quelques cases (un carrefour en baïonnette) ─
+  const zone = [hb[2], hb[3] + 3];                          // de Rivoli à Saint-Germain : tout est droit
+  const bandOf = y => (y >= zone[0] && y <= zone[1] ? -1 : hb.filter(y0 => y >= y0 + 4).length);
+  const jog = Array.from({ length: vb.length + ponts.length }, () => Array.from({ length: hb.length + 1 }, () => Math.round((r() - 0.5) * 4.4)));
+  const colBand = x => vb.filter(x0 => x >= x0 + 4).length;   // la colonne de blocs entre deux avenues
+  const rowJog = hb.map((_, i) => Array.from({ length: vb.length + 1 }, () => (i === 2 ? -Math.floor(r() * 2.4) : i === 3 ? Math.floor(r() * 2.4) : Math.round((r() - 0.5) * 2.4))));
+  const hw = [2, 4, 4, 4, 2];                               // les deux boulevards des bords ne sont que des rues de 2 cases
+  for (let x = 0; x < w; x++) hb.forEach((y0, i) => { const o = rowJog[i][colBand(x)]; for (let y = y0 + o + (4 - hw[i]) / 2; y < y0 + o + (4 + hw[i]) / 2; y++) if (k[y][x] !== '~') put(x, y, hw[i] === 4 ? 'B' : '.'); });
+  vb.forEach((x0, vi) => { for (let y = 0; y < h; y++) {
+    const o = bandOf(y) < 0 ? 0 : jog[vi][bandOf(y)];
+    for (let x = x0 + o; x < x0 + o + 4; x++) { if (k[y][x] === '~') put(x, y, '='); else put(x, y, 'B'); }
+  } });
   // ─ Les rues de 2 cases : avec une passerelle, ou (dans les grands vides) sans ─
-  const rue = (x0, bridge) => {
-    for (let x = x0; x < x0 + 2; x++) for (let y = 0; y < h; y++) {
-      if (k[y][x] === '~') { if (bridge) put(x, y, '='); continue; }
-      if (!bridge && y > waterN(x) - 4 && y < waterS(x) + 4) continue;
-      if (free(x, y)) put(x, y, '.');
+  const rue = (x0, bridge, ji = -1) => {
+    for (let y = 0; y < h; y++) {
+      const o = bridge && bandOf(y) >= 0 ? jog[vb.length + ji][bandOf(y)] : 0;
+      for (let x = x0 + o; x < x0 + o + 2; x++) {
+        if (k[y][x] === '~') { if (bridge) put(x, y, '='); continue; }
+        if (!bridge && y > waterN(x) - 4 && y < waterS(x) + 4) continue;
+        if (free(x, y)) put(x, y, '.');
+      }
     }
   };
-  ponts.forEach(x0 => rue(x0, true));
+  ponts.forEach((x0, pi) => rue(x0, true, pi));
   const cols = [[0, 0], ...vb.map(x => [x, x + 3]), ...ponts.map(x => [x, x + 1]), [w - 1, w - 1]].sort((p, q) => p[0] - q[0]);
   for (let i = 0; i + 1 < cols.length; i++) {
     const a = cols[i][1] + 1, b = cols[i + 1][0] - 1;
@@ -233,19 +247,36 @@ export function generateQuarter(seed = 1871, w = 88, h = 72) {
   for (let x = 0; x < w; x++) if (onIsland(x)) for (const y of [c + 2, c + 1 + islandN(x)]) if (free(x, y)) put(x, y, '.');
 
   // ─ Les îlots : ce qui reste à bâtir, par groupes de cases ─
-  const blocks = [];
-  const seen = Array.from({ length: h }, () => new Array(w).fill(false));
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (!free(x, y) || seen[y][x]) continue;
-    const cells = [[x, y]], b = { cells, x0: x, x1: x, y0: y, y1: y };
-    seen[y][x] = true;
-    for (let i = 0; i < cells.length; i++) {
-      const [cx, cy] = cells[i];
-      b.x0 = Math.min(b.x0, cx); b.x1 = Math.max(b.x1, cx); b.y0 = Math.min(b.y0, cy); b.y1 = Math.max(b.y1, cy);
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (free(cx + dx, cy + dy) && !seen[cy + dy][cx + dx]) { seen[cy + dy][cx + dx] = true; cells.push([cx + dx, cy + dy]); }
+  const findBlocks = () => {
+    const out = [];
+    const seen = Array.from({ length: h }, () => new Array(w).fill(false));
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!free(x, y) || seen[y][x]) continue;
+      const cells = [[x, y]], b = { cells, x0: x, x1: x, y0: y, y1: y };
+      seen[y][x] = true;
+      for (let i = 0; i < cells.length; i++) {
+        const [cx, cy] = cells[i];
+        b.x0 = Math.min(b.x0, cx); b.x1 = Math.max(b.x1, cx); b.y0 = Math.min(b.y0, cy); b.y1 = Math.max(b.y1, cy);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (free(cx + dx, cy + dy) && !seen[cy + dy][cx + dx]) { seen[cy + dy][cx + dx] = true; cells.push([cx + dx, cy + dy]); }
+      }
+      out.push(b);
     }
-    blocks.push(b);
+    return out;
+  };
+  // les grands îlots sont coupés par une rue de 2 cases, souvent de biais : de petites marches qui, une fois la grille déformée, font une rue en diagonale
+  for (let pass = 0; pass < 2; pass++) for (const b of findBlocks()) {
+    const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1;
+    if (b.cells.some(([x, y]) => onIsland(x) && y > c && y < c + 12) || b.cells.length < 36 || hash(b.x0, b.y0, seed, 21 + pass) < 0.15) continue;
+    const mine = new Set(b.cells.map(([x, y]) => y * w + x));
+    if (bw >= 9 && bw >= bh * 0.8) {
+      const base = b.x0 + Math.round(bw * (0.35 + r() * 0.3)), tilt = (r() - 0.5) * 0.9, yc = (b.y0 + b.y1) / 2;
+      for (let y = b.y0; y <= b.y1; y++) for (let dx = 0; dx < 2; dx++) { const x = base + Math.round(tilt * (y - yc)) + dx; if (mine.has(y * w + x)) put(x, y, '.', 0); }
+    } else if (bh >= 9) {
+      const base = b.y0 + Math.round(bh * (0.35 + r() * 0.3)), tilt = (r() - 0.5) * 0.9, xc = (b.x0 + b.x1) / 2;
+      for (let x = b.x0; x <= b.x1; x++) for (let dy = 0; dy < 2; dy++) { const y = base + Math.round(tilt * (x - xc)) + dy; if (mine.has(y * w + x)) put(x, y, '.', 0); }
+    }
   }
+  const blocks = findBlocks();
   // les squares : les Tuileries (nord-ouest), le Luxembourg (sud-ouest), le Jardin des Plantes (sud-est)
   const gardenSet = new Set();
   const gardens = [];

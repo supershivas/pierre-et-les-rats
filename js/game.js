@@ -5,13 +5,13 @@
    Coordonnées monde en pixels du jeu (1 px = 5 cm, une case = 60 px). La
    vue est rendue en pixels du jeu dans un petit canvas, agrandi d'un
    facteur entier (pixels nets). */
-import { PAL } from './palette.js?v=2.2.0';
-import { CELL } from './scale.js?v=2.2.0';
-import { makeScene } from './scene.js?v=2.2.0';
-import { drawPierre, drawNote } from './sprites.js?v=2.2.0';
-import { createSwarm } from './swarm.js?v=2.2.0';
-import { PROP_TYPES, propSprite } from './props.js?v=2.2.0';
-import { hash } from './city.js?v=2.2.0';
+import { PAL } from './palette.js?v=2.3.0';
+import { CELL } from './scale.js?v=2.3.0';
+import { makeScene } from './scene.js?v=2.3.0';
+import { drawPierre, drawNote } from './sprites.js?v=2.3.0';
+import { createSwarm } from './swarm.js?v=2.3.0';
+import { PROP_TYPES, propSprite } from './props.js?v=2.3.0';
+import { hash } from './city.js?v=2.3.0';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const PIERRE_R = 5;
