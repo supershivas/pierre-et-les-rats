@@ -353,8 +353,11 @@ export function createSwarm({ city, capacity = 4000, onTrace = () => {} }) {
   }
   const visible = new Int32Array(capacity);
 
+  // Vide la nuée (une nouvelle partie)
+  function clear() { n = 0; flowFrom = -1; }
+
   return {
-    add, update, draw,
+    add, update, draw, clear,
     get count() { return n; },
     // l'état brut, en lecture (le prototype 3D du labo dessine les rats lui-même)
     get state() { return { x, y, vx, vy, z, st, ph }; },

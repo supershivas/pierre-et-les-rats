@@ -4,13 +4,15 @@
 
 ## Description
 
-Jeu en pixel art isométrique, dans la lignée graphique de Kingvi mais plus
-détaillé (niveau de détail de *Kingdom*). On incarne Pierre, un enfant qui
-joue de la flûte dans **le Paris de la Commune** (v1.4.0 ; avant : 1815) :
-janvier 1871, l'hiver du siège, où l'on mange les rats. Des notes sortent
-de la flûte ; les rats sortent des bouches d'égout, le rejoignent et le
-suivent en laissant de légères traces dans la neige. L'armée grossit à
-mesure qu'il joue. Le monde est vu **à hauteur d'enfant**.
+Jeu en pixel art 3D (v2.0.0 : three.js, caméra libre ; avant, isométrique en
+canvas 2D), dans la lignée graphique de Kingvi mais plus détaillé (niveau de
+détail de *Kingdom*). On incarne Pierre, un enfant qui joue de la flûte dans
+**le Paris de la Commune** (v1.4.0 ; avant : 1815) : janvier 1871, l'hiver du
+siège, où l'on mange les rats. Des notes sortent de la flûte ; les rats
+sortent des bouches d'égout, le rejoignent et le suivent en laissant de
+légères traces dans la neige. L'armée grossit à mesure qu'il joue. Le monde
+est vu **à hauteur d'enfant**, de près, la caméra tourne librement autour de
+Pierre.
 
 - **Production** : https://supershivas.github.io/pierre-et-les-rats/
 - **Catégorie** : secondaire (socle obligatoire ; fonctionnalités avancées
@@ -25,14 +27,18 @@ mesure qu'il joue. Le monde est vu **à hauteur d'enfant**.
 Porte-fenêtre : 12 × 40 px. Arcade du rez-de-chaussée : 28 × 48 px. Module
 d'immeuble : une case de 60 × 60 px, un étage de 60 px (3 m), comble de
 34 px, 7 niveaux au plus. Réverbère : 11 × 70 px (3,5 m).
-La vue est fixe, de près : environ 250 px du jeu en hauteur (`VIEW_H` dans
-game.js), agrandie d'un facteur entier. Plus de zoom qui recule avec
-l'armée (retiré en v1.4.0 : « on vit le monde à hauteur d'enfant »).
-Pierre n'est qu'**une silhouette noire** (`silhouette: true` de `drawPierre`).
+La vue est de près : environ 250 px du jeu en hauteur (`VIEW_H`), calculée en
+petite résolution puis agrandie d'un facteur entier sans lissage. Pas de zoom
+qui recule avec l'armée (retiré en v1.4.0) ; en 3D le joueur zoome à la main
+(molette, pincer ; `ppu` : 0,4 à 2,4 pixels d'écran par pixel du monde).
+Pierre n'est qu'**une silhouette noire** (un petit modèle de boîtes noires en
+3D ; `silhouette: true` de `drawPierre` en 2D).
+En 3D, les murs d'immeuble font 1 étage = 60 px de haut ; un immeuble « coupé »
+(entre la caméra et Pierre) tombe à un muret de 24 px (`CUT_H`).
 
 ### Palette du jeu (js/palette.js, variables --g-* de css/style.css)
 
-La nuit d'hiver 1815 : **bleu nuit, blanc et noir** seulement (demande de
+La nuit d'hiver (1871 ; 1815 avant la v1.4.0) : **bleu nuit, blanc et noir** seulement (demande de
 Jérôme, v1.0.1). Restreinte, identique entre canvas, HUD et commandes. Les
 clés gardent leurs noms d'origine (pierre, ocre…) pour ne pas toucher aux
 dessins : nuit `#05070c` (le noir), nuit2 `#0d1426`, ardoise `#16203a`,
@@ -46,7 +52,11 @@ planche gardent les tokens du design system.
 
 ## Stack
 
-- Vanilla JS (modules ES), canvas 2D, aucune dépendance, aucun build.
+- Vanilla JS (modules ES), aucun build. Le jeu est rendu par **three.js 0.170.0**
+  (v2.0.0, accord de Jérôme), **copié dans `vendor/`** : aucun CDN, aucun
+  `npm`. `js/three-lib.js` le charge à la demande. Le canvas 2D reste pour
+  l'atelier, la planche d'échelle et l'ancien moteur (secours : navigateur sans
+  WebGL, ou `?moteur=2d` dans l'adresse).
 - Hébergement : GitHub Pages, depuis `main`, racine (`.nojekyll` pour que
   `CHANGELOG.md` soit servi tel quel).
 - Données : locales. Partie dans `localStorage` (`pierre:partie`), réglages
@@ -58,40 +68,95 @@ planche gardent les tokens du design system.
 
 ## Structure
 
+**Moteur 3D (v2.0.0, celui du jeu)**
+
+- `js/game3d.js` : `createGame3D` (même interface que `createGame` de game.js :
+  `input`, `screenToWorld`, `setPlaying`, `snapshot`, `reload`, `stats`…, plus
+  `orbit`, `zoomBy`). La boucle, Pierre (modèle de boîtes noires animé), la
+  nuée (swarm.js, rendue en `InstancedMesh`), les traces (un `Points` dont le
+  shader efface les plus vieilles), les notes (sprites), la fumée des
+  cheminées, la neige (entièrement dans le shader), la caméra libre (yaw,
+  tangage, `ppu`), rendu en trois passes : décor, puis Pierre et rats
+  **tramés là où le décor les cache** (`GreaterDepth`, damier de 1 px), puis
+  Pierre et rats. `?rats=2000` charge une nuée d'essai ; `pierreStats()` donne
+  les temps (ms).
+- `js/world3d.js` : le monde. **Le sol** : une texture d'un octet par pixel
+  (indice de palette) lue par un shader qui lit la palette dans une texture de
+  9 × 1 ; l'eau à −14 px, des murs de quai, des ponts à parapets. **Un immeuble** =
+  une géométrie (4 murs, toit à la Mansart ou à deux pans selon les voisins,
+  lucarnes, cheminées) + une texture d'indices de 4 faces côte à côte, peinte par
+  `renderColumn` (buildings.js) : deux faces telles quelles, les deux autres en
+  faisant tourner la ville d'un demi-tour (`rotated`). Les façades se peignent
+  **après le démarrage, les plus proches de Pierre d'abord** (`paintSome`, un
+  budget de quelques ms par image, en deux temps par immeuble). **La coupe** :
+  chaque image, un immeuble entre la caméra et Pierre dont la boîte, projetée
+  à l'écran, recouvre le disque autour de lui, tombe à `CUT_H` (le shader
+  rabat tout ce qui est au-dessus, en 0,2 s). Les passages (`P`) sont de vrais
+  tunnels (l'arche est du vide : l'indice 255 est jeté par le shader).
+- `js/cathedral3d.js` : Notre-Dame, **un seul bloc** : tours, façade peinte,
+  nef, bas-côtés, arcs-boutants, transept, flèche, chevet ; posé sur le rectangle
+  des cases `N` (`city.cathedral`, façade du côté des cases les plus hautes).
+- `js/props3d.js` : réverbère, arbre nu (6 variantes, branches tirées au sort,
+  neige sur les branches qui s'y prêtent), banc, colonne Morris, borne : des
+  géométries à couleurs de sommets, instanciées.
+- `js/geo.js` : le `Mesher` (boîtes, cylindres, cônes, prismes, branches ;
+  chaque triangle prend un des trois tons de sa teinte d'après son orientation,
+  la neige sur le dessus : tout reste dans la palette).
+- `js/controls.js` : les commandes au pouce/souris (marcher vers le point
+  touché ; clic droit ou deux doigts pour tourner, pincer/molette pour zoomer),
+  partagées avec le Labo. Le clavier du jeu est dans main.js (J et L font
+  tourner la vue ; deux boutons à l'écran aussi).
+- `js/three-lib.js`, `vendor/` : three.js. Les couleurs sont passées telles
+  quelles (`ColorManagement` coupé, sortie linéaire) : la palette est exacte.
+
+**Moteur 2D (ancien ; secours, atelier, labo)**
+
 - `index.html`, `js/main.js` : en-tête, accueil (le quartier défile derrière
   le titre), prologue, HUD, commandes, réglages, sauvegarde, mise à jour.
-- `js/game.js` : la boucle (Pierre, appel des rats, traces dans un tampon
+- `js/game.js` : l'ancienne boucle 2D (Pierre, appel des rats, traces dans un tampon
   circulaire typé, notes, fumées, neige, nuit, estompage des maisons qui
   cachent Pierre, silhouette tramée quand il est caché). `?rats=2000` dans
   l'adresse charge une nuée d'essai ; `window.pierreStats()` donne les
   temps moyens (ms) de simulation et de rendu.
-- `js/swarm.js` : **la nuée**, pensée pour des milliers de rats (4 000
+- `js/swarm.js` : **la nuée** (commune aux deux moteurs), pensée pour des milliers de rats (4 000
   simulés au plus, `MAX_RATS` dans game.js ; au-delà, l'armée est comptée).
   Tableaux typés, grille de voisinage reconstruite par tri par comptage,
   pilotage à la Reynolds (séparation, alignement, errance) plus un but :
   champ de vecteurs vers Pierre (carte des distances sur les rues), puis
   une place dans un disque qui tourne autour de lui. Machine à états :
   course, va-et-vient, dressé, saut, demi-tour, toilette ; pile (z) là où
-  c'est serré. Rendu : pixels écrits dans un tampon Uint32, masqués par le
-  tampon de profondeur des maisons, un seul envoi par image.
+  c'est serré. **Un rat perdu** (sans chemin jusqu'à Pierre) **ou pris dans un
+  mur** est recollé près de lui au bout de 1,5 s (`rescue`). Rendu 2D : pixels
+  écrits dans un tampon Uint32, masqués par le tampon de profondeur des maisons.
 - `js/rat-sprites.js` : les poses des rats (galop ×3, vers nous, de dos,
   dressé ×2, saut, en boule), en listes de pixels et en petits canvas.
 - `js/city.js` : le modèle du quartier : une hauteur par case (« rows »,
   0 = rien de bâti) et un terrain par case (« ground » : `.` rue ou maison,
-  `~` Seine, `=` pont, `P` passage sous un immeuble, `N` Notre-Dame, tour
-  à partir de 7 niveaux). `city.walk(i, j)` dit où l'on marche (rue, pont,
-  passage) : c'est la seule règle de passage, utilisée partout. Le hasard
-  déterministe `hash`, le générateur `generateQuarter` (26 × 22) : la Seine
-  d'ouest en est, partagée autour de l'île de la Cité (Notre-Dame à l'est,
-  façade et rose tournées vers +x pour être vues, parvis devant), quais,
-  ponts, rues des deux rives, îlots haussmanniens de 5 à 7 niveaux, vieilles
-  maisons sur l'île et au sud-est, passages, départ sur la place.
-- `js/props.js` : le mobilier urbain (réverbère, arbre, banc, colonne
-  Morris, borne), dessiné une fois par type, tiré au sort par
-  `generateProps`, gardé dans `data/ville.json` (« props » : type, x, y en
-  monde, variante). Pierre bute dessus ; les rats non. Les réverbères
-  percent la nuit (une ellipse tramée en `destination-out` sur la couche de
-  nuit, seulement s'il y en a un à l'écran).
+  `B` avenue ou quai plantés, `~` Seine, `=` pont, `P` passage sous un
+  immeuble, `N` Notre-Dame : **toutes les cases N forment un seul bloc**, en 2D
+  des étages, en 3D la cathédrale). `city.walk(i, j)` dit où l'on marche (rue,
+  avenue, pont, passage) : c'est la seule règle de passage, utilisée partout.
+  `city.reach` : les cases joignables depuis le départ (bouches d'égout et
+  mobilier n'y vont que là). `city.cathedral` : { i0, j0, w, d, facing }.
+  Le hasard déterministe `hash` (et `hash3`), le générateur `generateQuarter`
+  (**44 × 40**, v2.0.0) : la Seine d'ouest en est sur toute la largeur, large de
+  3 cases, partagée autour de l'île de la Cité (6 × 18 cases : vieilles
+  maisons à l'ouest, parvis, **Notre-Dame 8 × 4 cases à l'est, façade à
+  l'ouest**) ; quais de 3 cases ; cinq ponts ; deux boulevards est-ouest et
+  deux nord-sud de 4 cases, droits ; des rues de 2 cases ; puis les îlots
+  restants : haussmanniens (deux cases d'épaisseur, 5 à 7 niveaux, une ruelle
+  centrale avec des passages couverts) ou vieux quartier (ruelles d'une case,
+  maisons de 1 à 4 niveaux, au sud-ouest et sur l'île) ; un îlot devient
+  square. Les repères du générateur (axe du fleuve, boulevards…) sont des
+  fractions de la taille de la carte.
+- `js/props.js` : le mobilier urbain (réverbère, arbre, banc, colonne Morris,
+  borne), tiré au sort par `generateProps`, gardé dans `data/ville.json`
+  (« props » : type, x, y en monde, variante, **quart de tour** du banc ; les
+  anciennes données à 4 valeurs marchent). Avenues et quais : un arbre toutes
+  les 3 cases sur chaque trottoir, un réverbère entre deux arbres, des bancs,
+  une colonne Morris de loin en loin (détectés dans les cases B). Pierre bute
+  dessus ; les rats non. Les dessins 2D (sprites) servent l'atelier et la
+  planche d'échelle ; les modèles 3D sont dans props3d.js.
 - `js/buildings.js` : **le générateur d'immeubles iso**. Chaque colonne est
   peinte pixel par pixel une fois ; faces, ouvertures, toit, pignons,
   cheminées (0 à 3) s'adaptent aux voisins (façon Townscaper). **Peu de
@@ -106,7 +171,7 @@ planche gardent les tokens du design system.
   Option `night` (le jeu) : au-dessus de 3,75 m la façade s'enfonce dans le
   noir (trame de Bayer selon la hauteur, `NIGHT_Z0`, `NIGHT_Z1`), sauf les
   fenêtres éclairées ; l'atelier dessine sans la nuit.
-- `js/ground.js` : le sol (une grande image) : chaussée, trottoirs et leur
+- `js/ground.js` : le sol (2D : une grande image ; `makeGroundColor` donne la couleur de chaque pixel, aussi pour la texture 3D) : chaussée, trottoirs et leur
   bordure le long des maisons, ombres portées, bouches d'égout ; la Seine
   (eau noire, glaçons), les murs de quai, les ponts et leurs parapets ;
   traces imprimées et effacées.
@@ -125,41 +190,53 @@ planche gardent les tokens du design system.
 - `js/city-store.js` : chargement du quartier publié et du brouillon.
 - `atelier.html`, `js/atelier.js`, `css/atelier.css` : l'Atelier (bâtir,
   démolir un étage ou un objet, point de départ, mobilier, terrain : Seine,
-  pont, passage, Notre-Dame ; nouveau quartier, publier). Bouton « Plan »
+  pont, passage, avenue, Notre-Dame — les cases N, un seul bloc, remplacent ce
+  qu'elles couvrent ; nouveau quartier, publier). Il reste en vue iso 2D. Bouton « Plan »
   (touche V) : la vue de dessus, une case par carré, le nombre d'étages
   écrit dessus, pour atteindre les maisons cachées derrière les autres.
 - `echelle.html`, `js/echelle.js` : la planche d'échelle.
 - `labo.html`, `js/labo.js`, `css/labo.css` : le Labo (créé à la demande de
   Jérôme, v1.3.0 ; refait pour la Commune en v1.4.0). Cinq sujets
   (scénarios de la Commune, personnages secondaires, objets, bâtiments,
-  urbanisme), quatre idées chacun ; A = le jeu d'aujourd'hui. Chaque idée : un titre, une phrase, une
+  urbanisme) et le moteur ; A = le jeu d'aujourd'hui. Chaque idée : un titre, une phrase, une
   vignette animée (vue de face, palette du jeu, fonctions de `ART`) et trois
   colonnes (le récit, le jeu, ce que ça demande). Ajouter une idée = une
   entrée dans `TOPICS` et sa vignette. Lien « Labo » (fiole) dans les
   réglages et dans l'en-tête de l'atelier.
-- `js/labo-3d.js` : **le prototype three.js** (v1.4.1, sujet « Moteur » du
-  Labo, en direct). three.js **0.170.0**, chargé à la demande depuis
-  jsDelivr par le Labo seulement (accord de Jérôme ; le jeu n'en dépend
-  pas). Même quartier, mêmes façades (renderColumn redressé en textures),
-  même nuée (`swarm.state`), rendu basse résolution agrandi sans lissage,
-  matériaux non éclairés en filtrage « nearest » : la palette reste exacte.
-  Trois caméras (`mode` : `iso` orthographique 1:1, `child` derrière Pierre,
-  `free` qui tourne). Coupe autour de Pierre (`setCut`), silhouette tramée à
-  travers les murs. `mount2D` monte le jeu 2D actuel pour comparer.
+- `js/labo-3d.js` : le sujet « Moteur » du Labo, en direct : `mount3D` monte le
+  jeu 3D (A, actuelle), `mount2D` l'ancien moteur 2D (B, ancienne).
 - `scripts/stamp-version.mjs` : estampille `?v=` sur imports et feuilles de
   style ; **à lancer après chaque changement de `version.json`** (GitHub
   Pages garde 10 min de cache).
 - `data/ville.json` : régénérer le quartier par défaut avec
   `generateQuarter(1871)` puis `formatCity` (city-store.js) ; vérifier que
-  « ground » y figure.
+  « ground » y figure. (Le générateur importe props.js, qui ne touche au DOM
+  qu'à la demande : il tourne sous Node.)
 
 ## Exceptions aux conventions
 
 - L'Atelier publie avec l'API « contents » de GitHub (un seul fichier,
   `data/ville.json`), pas l'API des arbres comme Kingvi.
+- three.js (une dépendance, acceptée par Jérôme pour la v2) est **copié dans
+  `vendor/`** (MIT, `vendor/LICENSE-three`) : pas de CDN. `scripts/stamp-version.mjs`
+  ne touche pas à `vendor/` (son `?v=170` est celui de three.js).
+- v2.0.0 est sur la branche `claude/bold-shannon-ytoxr4`, pas sur `main` (la
+  session l'imposait) : la production ne change qu'à la fusion.
 
 ## Pièges connus
 
+- **Moteur 3D** : les textures sont des octets d'indice de palette
+  (`PAL_INDEX`) : jamais de mipmaps ni de filtrage linéaire (moyenner des
+  indices ferait n'importe quoi) ; limiter le dézoom (`PPU_MIN`). Toute couleur
+  nouvelle va dans `palette.js`, et alors dans `PALETTE` (maintenant 9
+  couleurs distinctes). Les passes de rendu comptent : le double tramé de
+  Pierre et des rats se dessine **avant** eux (sinon il traverse leurs propres
+  membres). Les points (traces, neige, fumée) ont une taille en pixels de
+  l'écran réduit, pas en unités du monde.
+- Un rat « qui disparaît dans une rue étroite » n'était pas perdu : c'était
+  l'occultation par les maisons de devant (2D comme 3D). En 3D : la coupe des
+  immeubles, plus le double tramé des rats à moins de 260 px de Pierre. Le vrai
+  bug (rats hors de portée ou dans un mur) est réparé dans swarm.js.
 - Les immeubles de devant cachent les rues (et la Seine) : autour de Pierre,
   les colonnes plus en avant qui couvrent ses abords sont **coupées au
   rez-de-chaussée** (maison de poupée, `'cut'` dans `scene.draw`,
@@ -177,4 +254,12 @@ planche gardent les tokens du design system.
   ~3,7 ms avec peu de rats (9,7 avant), ~10,7 ms à 3 000 rats (13 avant) ;
   la nuée elle-même ~2 ms (`pierreStats().ms.rats`). Mémoire : le décor
   (~2 640 × 1 860 px) plus le masque et le tampon de profondeur.
+- Performances 3D (Chromium sans carte graphique, vue 1280 × 760, v2.0.0) :
+  3 000 rats → simulation ~5 ms ; les matrices des rats ~0,5 ms ; la coupe
+  des immeubles ~0,2 ms ; 650 immeubles ≈ 650 appels de dessin (le
+  rendu logiciel est lent, une vraie carte graphique non mesurée). Au
+  démarrage : ~1,3 s (le sol, les géométries), puis les façades se peignent en
+  fond (~7 ms par immeuble, 3 ms par image). Mémoire : ~45 Mo de textures d'indices
+  pour les façades, 6 Mo pour le sol. Un `renderColumn` coûte 3 à 6 ms : ne pas
+  repeindre pendant le jeu.
 - Le titre utilise IM Fell English (Google Fonts), propre au jeu.

@@ -41,7 +41,8 @@ const TERRAIN = {
   water: { label: 'Seine', icon: 'ti-ripple', about: 'L\'eau (un second clic rend la rue)' },
   bridge: { label: 'Pont', icon: 'ti-building-bridge-2', about: 'Un pont sur la Seine' },
   passage: { label: 'Passage', icon: 'ti-building-arch', about: 'Un passage sous un immeuble' },
-  cathedral: { label: 'Notre-Dame', icon: 'ti-building-church', about: 'Notre-Dame : la nef, ou une tour à partir de 7 étages' },
+  boulevard: { label: 'Avenue', icon: 'ti-road', about: 'Une avenue ou un quai : trottoirs plantés d\'arbres, de réverbères, de bancs (un second clic rend la rue)' },
+  cathedral: { label: 'Notre-Dame', icon: 'ti-building-church', about: 'Notre-Dame : toutes les cases N forment un seul bloc, tourné vers le côté des cases les plus hautes ; il remplace ce qui est là' },
 };
 const history = [];
 
@@ -218,8 +219,14 @@ function apply([i, j]) {
       if (k === '~') next = '='; else if (k === '=') next = '~'; else { toast('Un pont se pose sur la Seine.'); return; }
     } else if (terrainKind === 'passage') {
       if (k === 'P') next = '.'; else if (n > 0 && k === '.') next = 'P'; else { toast('Un passage se creuse sous un immeuble.'); return; }
+    } else if (terrainKind === 'boulevard') {
+      if (k === 'B') next = '.'; else if (k === '.' && n === 0) next = 'B'; else { toast('Une avenue se trace sur une rue (ou un quai).'); return; }
     } else if (terrainKind === 'cathedral') {
-      if (k === 'N') next = '.'; else if (n > 0) next = 'N'; else { toast('Notre-Dame se bâtit sur des cases bâties (7 étages et plus : une tour).'); return; }
+      if (k === 'N') next = '.';
+      else if (k === '.' || k === 'B' || k === 'P') {
+        if (city.start[0] === i && city.start[1] === j) { toast('Pierre ne part pas de la cathédrale.'); return; }
+        next = 'N'; height = n > 0 ? n : 5;     // elle remplace ce qui était là (7 étages et plus : une tour)
+      } else { toast('Notre-Dame se bâtit sur la terre ferme.'); return; }
     }
     history.push({ i, j, n, kind: k });
     city.setKind(i, j, next); city.set(i, j, height);

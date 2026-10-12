@@ -6,6 +6,7 @@ import { loadCity, readDraft } from './city-store.js?v=2.0.0';
 import { createGame } from './game.js?v=2.0.0';
 import { makeFlute } from './audio.js?v=2.0.0';
 import { MOVE, keyIs, stopTypeahead } from './keys.js?v=2.0.0';
+import { attachPointer } from './controls.js?v=2.0.0';
 
 const SAVE_KEY = 'pierre:partie';
 const PREFS_KEY = 'pierre:prefs';
@@ -42,19 +43,31 @@ let save = readJSON(SAVE_KEY, null);
 let game = null;
 let state = 'title'; // 'title' | 'prologue' | 'play'
 
-function newGameObject(fromSave) {
+/* Le moteur : la 3D (three.js, v2) ; si le navigateur ne sait pas (pas de WebGL),
+   l'ancien moteur 2D isométrique. ?moteur=2d dans l'adresse force le 2D. */
+const query = new URLSearchParams(location.search);
+// ?rats=2000 dans l'adresse : pour éprouver la nuée (essais de performance)
+const testRats = Math.min(4000, +query.get('rats') || 0);
+function setLoading(text) { $('loading').textContent = text ? `Chargement… ${text.replace(/…/g, '').trim()}` : ''; }
+let use3d = query.get('moteur') !== '2d';
+async function newGameObject(fromSave) {
+  if (game?.reload) { game.reload(fromSave, testRats); updateCount(game.army); return; }
   if (game) game.destroy();
-  game = createGame({
-    canvas: $('game'), city, save: fromSave,
-    // ?rats=2000 dans l'adresse : pour éprouver la nuée (essais de performance)
-    testRats: Math.min(4000, +new URLSearchParams(location.search).get('rats') || 0),
-    onRats: n => updateCount(n),
-    onMessage: m => showMessage(m),
-  });
+  const options = { canvas: $('game'), city, save: fromSave, testRats, onRats: n => updateCount(n), onMessage: m => showMessage(m) };
+  game = null;
+  if (use3d) {
+    try {
+      const { createGame3D } = await import('./game3d.js?v=2.0.0');
+      game = await createGame3D({ ...options, onProgress: setLoading });
+    } catch (err) { console.warn('Moteur 3D indisponible, retour au moteur 2D :', err); use3d = false; }
+  }
+  game ||= createGame(options);
   game.setZoom(prefs.zoom);
+  document.body.classList.toggle('can-rotate', !!game.canRotate);
   updateCount(game.army);
 }
-newGameObject(save);
+await newGameObject(save);
+$('loading').hidden = true; $('title-actions').hidden = false;
 window.pierreStats = () => game.stats; // pour les essais de performance
 game.setAttract(true);
 game.resume();
@@ -93,7 +106,7 @@ function showTitle() {
   state = 'title';
   $('title').hidden = false;
   $('prologue').hidden = true;
-  $('hud').hidden = true; $('play').hidden = true; $('hint').classList.add('gone');
+  $('hud').hidden = true; $('play').hidden = true; $('rotate').hidden = true; $('hint').classList.add('gone');
   $('title-resume').hidden = !save;
   $('title-new').classList.remove('confirm');
   $('title-new').querySelector('span').textContent = 'Nouvelle partie';
@@ -103,11 +116,12 @@ function showTitle() {
 function enterPlay() {
   state = 'play';
   $('title').hidden = true;
-  $('hud').hidden = false; $('play').hidden = false;
+  $('hud').hidden = false; $('play').hidden = false; $('rotate').hidden = false;
   game.setAttract(false);
   game.resume();
   $('game').focus?.();
   const hint = $('hint');
+  if (matchMedia('(pointer: coarse)').matches) hint.textContent = game.canRotate ? 'Toucher le sol pour marcher · deux doigts ou les flèches en bas pour tourner la vue · la flûte à droite' : 'Toucher le sol pour marcher · la flûte à droite';
   hint.classList.remove('gone');
   setTimeout(() => hint.classList.add('gone'), 7000);
 }
@@ -134,7 +148,7 @@ function playPrologue() {
   setTimeout(() => addEventListener('keydown', finish), 300);
 }
 
-$('title-resume').addEventListener('click', () => { newGameObject(save); enterPlay(); });
+$('title-resume').addEventListener('click', async () => { await newGameObject(save); enterPlay(); });
 $('title-new').addEventListener('click', e => {
   const btn = e.currentTarget;
   if (save && !btn.classList.contains('confirm')) {
@@ -144,10 +158,10 @@ $('title-new').addEventListener('click', e => {
   }
   startNewGame();
 });
-function startNewGame() {
+async function startNewGame() {
   save = null;
   writeJSON(SAVE_KEY, null);
-  newGameObject(null);
+  await newGameObject(null);
   playPrologue();
 }
 $('title-settings').addEventListener('click', openSettings);
@@ -183,33 +197,30 @@ addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   for (const [dir, codes] of Object.entries(MOVE)) if (codes.includes(e.code)) { game.input[dir] = 1; game.input.target = null; e.preventDefault(); }
   if (e.key === 'Shift') game.input.run = true;
+  if (keyIs(e, 'j')) game.input.rotate = 1;       // la vue tourne à gauche
+  if (keyIs(e, 'l')) game.input.rotate = -1;      // … à droite
   if (e.repeat) return;
   if ((e.code === 'Space' && !e.target.closest?.('button, a')) || keyIs(e, 'e')) { e.preventDefault(); startPlaying(); }
 });
 addEventListener('keyup', e => {
   for (const [dir, codes] of Object.entries(MOVE)) if (codes.includes(e.code)) game.input[dir] = 0;
   if (e.key === 'Shift') game.input.run = false;
+  if (keyIs(e, 'j') && game.input.rotate > 0 || keyIs(e, 'l') && game.input.rotate < 0) game.input.rotate = 0;
   if (e.code === 'Space' || keyIs(e, 'e')) stopPlaying();
 });
-addEventListener('blur', () => { for (const k of ['up', 'down', 'left', 'right']) game.input[k] = 0; game.input.run = false; stopPlaying(); });
+addEventListener('blur', () => { for (const k of ['up', 'down', 'left', 'right']) game.input[k] = 0; game.input.run = false; game.input.rotate = 0; stopPlaying(); });
 
 // ─── Au pouce ou à la souris : Pierre marche vers le point touché ───
+// Avec la caméra libre : clic droit ou deux doigts pour tourner (et pincer pour zoomer), la molette zoome
 const canvas = $('game');
-let pointerId = null;
-canvas.addEventListener('pointerdown', e => {
-  if (state !== 'play') return;
-  pointerId = e.pointerId;
-  canvas.setPointerCapture(e.pointerId);
-  const r = canvas.getBoundingClientRect();
-  game.input.target = game.screenToWorld(e.clientX - r.left, e.clientY - r.top);
-  game.input.hold = true;
-});
-canvas.addEventListener('pointermove', e => {
-  if (e.pointerId !== pointerId) return;
-  const r = canvas.getBoundingClientRect();
-  game.input.target = game.screenToWorld(e.clientX - r.left, e.clientY - r.top);
-});
-for (const ev of ['pointerup', 'pointercancel']) canvas.addEventListener(ev, e => { if (e.pointerId === pointerId) { pointerId = null; game.input.hold = false; } });
+attachPointer(canvas, { get input() { return game.input; }, get canRotate() { return game.canRotate; }, screenToWorld: (x, y) => game.screenToWorld(x, y), orbit: (a, b) => game.orbit?.(a, b), zoomBy: k => game.zoomBy?.(k) }, { active: () => state === 'play' });
+// les deux boutons qui font tourner la vue (au pouce)
+for (const [id, dir] of [['rot-left', 1], ['rot-right', -1]]) {
+  const btn = $(id);
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); game.input.rotate = dir; });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) btn.addEventListener(ev, () => { if (game.input.rotate === dir) game.input.rotate = 0; });
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+}
 
 addEventListener('resize', () => game.resize());
 

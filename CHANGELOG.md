@@ -1,5 +1,11 @@
 # Historique
 
+## 2.0.0 — 2026-10-12
+- Le jeu passe en vraie 3D (three.js) : la caméra se fait tourner librement autour de Pierre (J et L, deux boutons à l'écran, le bouton droit ou deux doigts ; la molette ou le pincement zooment)
+- Une ville refaite : de grands boulevards droits plantés d'arbres, de réverbères et de bancs, des ruelles de maisons basses, la Seine d'un bout à l'autre de la carte avec cinq ponts, Notre-Dame d'un seul bloc sur son île
+- Les arbres, bancs, colonnes Morris, bornes et réverbères sont en 3D ; les immeubles entre la caméra et Pierre se coupent en muret, et Pierre comme les rats restent visibles à travers les murs ; les rats perdus sont recollés à l'armée
+- L'atelier : un outil Avenue ; Notre-Dame est un seul bloc de cases ; le Labo montre le jeu 3D et l'ancien moteur 2D, qui reste le moteur de secours sans WebGL
+
 ## 1.4.1 — 2026-10-12
 - Le Labo : un sujet « Moteur » pour comparer en direct le jeu d'aujourd'hui (canvas 2D) et un prototype three.js du même quartier et de la même nuée, en isométrique pixel, à hauteur d'enfant et en vue libre
 

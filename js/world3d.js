@@ -219,15 +219,20 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     const passage = kind === 'P';
     const ns = passage && city.walk(i, j - 1) && city.walk(i, j + 1);
     const ew = passage && !ns && city.walk(i - 1, j) && city.walk(i + 1, j);
-    // la peinture des façades (le plus long) vient après : voir paintSome
-    const paint = () => {
-      const tex = new Uint8Array(TEX_W * H);
-      const col = renderColumn(city, i, j, { night: true, all: true, roof: false, raw: true });
-      const colR = renderColumn(rotated, city.w - 1 - i, city.h - 1 - j, { night: true, all: true, roof: false, raw: true });
-      fillFace(tex, H, 0, col, 'A', ns); fillFace(tex, H, 1, col, 'B', ew);
-      fillFace(tex, H, 2, colR, 'A', ns); fillFace(tex, H, 3, colR, 'B', ew);
-      mat.uniforms.map.value = byteTexture(tex, TEX_W, H);
-    };
+    // la peinture des façades (le plus long) vient après, en deux temps (voir paintSome)
+    let tex = null;
+    const steps = [
+      () => {
+        tex = new Uint8Array(TEX_W * H);
+        const col = renderColumn(city, i, j, { night: true, all: true, roof: false, raw: true });
+        fillFace(tex, H, 0, col, 'A', ns); fillFace(tex, H, 1, col, 'B', ew);
+      },
+      () => {
+        const colR = renderColumn(rotated, city.w - 1 - i, city.h - 1 - j, { night: true, all: true, roof: false, raw: true });
+        fillFace(tex, H, 2, colR, 'A', ns); fillFace(tex, H, 3, colR, 'B', ew);
+        mat.uniforms.map.value = byteTexture(tex, TEX_W, H);
+      },
+    ];
 
     const pos = [], uv = [], cols = [], mode = [], roofF = [];
     const vtx = (x, y, z, u, c, md, rf) => { pos.push(x, y, z); uv.push(u, 0); cols.push(c[0], c[1], c[2]); mode.push(md); roofF.push(rf); };
@@ -328,7 +333,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     const hTop = H + 36 + 24;
     const corners = [];
     for (const x of [ox, ox + CELL]) for (const z of [oz, oz + CELL]) for (const y of [0, hTop]) corners.push(x, y, z);
-    const b = { i, j, n, mesh, mat, paint, cut: 0, target: 0, cx: ox + CELL / 2, cz: oz + CELL / 2, corners };
+    const b = { i, j, n, mesh, mat, step: () => steps.shift()(), done: () => !steps.length, cut: 0, target: 0, cx: ox + CELL / 2, cz: oz + CELL / 2, corners };
     buildings.push(b);
     return b;
   }
@@ -446,7 +451,11 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
       queue.sort((p, q) => ((q.cx - px) ** 2 + (q.cz - pz) ** 2) - ((p.cx - px) ** 2 + (p.cz - pz) ** 2));   // le plus proche en dernier
     }
     const t0 = performance.now();
-    while (queue.length && performance.now() - t0 < budgetMs) queue.pop().paint();
+    do {
+      const b = queue[queue.length - 1];
+      b.step();
+      if (b.done()) queue.pop();
+    } while (queue.length && performance.now() - t0 < budgetMs);
     return queue.length;
   }
 

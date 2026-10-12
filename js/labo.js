@@ -330,24 +330,18 @@ const ART = {
 const NOW = {
   title: 'Aujourd\'hui : l\'hiver du siège, on erre', pitch: 'Paris, janvier 1871. Pierre marche dans les rues, au bord de la Seine, joue, et les rats sortent des égouts pour le suivre. Pas encore de but : c\'est la base sur laquelle bâtir.',
   art: 'now', tag: 'actuelle',
-  cols: ['Une ambiance : la nuit, la neige, Paris assiégé ; le monde à hauteur d\'enfant.', 'Marcher, jouer, regarder la nuée grossir et grouiller.', 'Rien : c\'est l\'état du jeu (v1.4.0).'],
+  cols: ['Une ambiance : la nuit, la neige, Paris assiégé ; le monde à hauteur d\'enfant.', 'Marcher, jouer, regarder la nuée grossir et grouiller.', 'Rien : c\'est l\'état du jeu.'],
 };
 const TOPICS = [
   {
-    id: 'moteur', icon: 'ti-box', title: 'Moteur : 2D ou three.js',
+    id: 'moteur', icon: 'ti-box', title: 'Moteur : 3D ou 2D',
     variants: [
-      { title: 'Aujourd\'hui : le canvas 2D isométrique', live: '2d', tag: 'actuelle',
-        pitch: 'Le moteur actuel, en direct : des images peintes pixel par pixel, posées en isométrique, un décor pré-calculé, la nuée écrite dans un tampon. ZQSD pour marcher, ou toucher le sol.',
-        cols: ['Le pixel art exact, peint à la main par le code : chaque pixel est voulu.', 'Une seule vue, au-dessus des toits ; les maisons devant Pierre se coupent au rez-de-chaussée pour qu\'on le voie.', 'Rien de plus : c\'est le jeu (v1.4.0). Ses limites : pas de vraie caméra, la lumière peinte, l\'occultation faite à la main.'] },
-      { title: 'three.js, isométrique pixel', live: 'iso',
-        pitch: 'La même ville en vraie 3D, vue comme aujourd\'hui : caméra orthographique, un pixel rendu pour un pixel du jeu, matériaux non éclairés et palette exacte. ZQSD, ou toucher le sol.',
-        cols: ['Le même regard que le jeu, mais les maisons sont de vrais volumes : l\'occultation est juste partout, sans tampon fait main.', 'Rien ne change pour le joueur ; on gagne la base pour tout le reste (caméras, lumière, coupe par un plan).', 'three.js (≈ 150 Ko compressés, chargé depuis le CDN), les façades du générateur redressées en textures, les rats en boîtes instanciées.'] },
-      { title: 'three.js, à hauteur d\'enfant', live: 'child',
-        pitch: 'La caméra descend dans la rue, à 1,50 m, derrière Pierre : les façades montent dans la nuit, les fenêtres éclairées percent au-dessus. Z/S pour avancer, Q/D pour tourner.',
-        cols: ['Le monde vraiment vu par un enfant : la rue, les portes cochères, la nuée à ses pieds, le reste perdu dans le noir.', 'Un jeu plus intime et plus inquiétant ; on perd la vue d\'ensemble (la carte, le ballon, le plan la rendent).', 'Une caméra en perspective, des façades plus détaillées en bas (on les voit de près), des rats mieux dessinés.'] },
-      { title: 'three.js, vue libre', live: 'free',
-        pitch: 'La caméra tourne autour de Pierre : glisser pour tourner, la molette pour s\'éloigner. On voit les faces cachées des îlots, les cours, l\'autre côté de Notre-Dame.',
-        cols: ['Paris sous tous les angles : utile pour l\'atelier, des scènes, une fin.', 'Tourner la ville pour trouver un passage ; dans l\'atelier, bâtir de tous les côtés.', 'Les faces arrière des maisons à dessiner (aujourd\'hui sombres), le reste est là.'] },
+      { title: 'Aujourd\'hui : three.js, vue libre', live: '3d', tag: 'actuelle',
+        pitch: 'Le jeu depuis la v2.0.0, en direct : la même ville en vraie 3D, matériaux non éclairés et palette exacte. ZQSD ou toucher le sol pour marcher ; J et L, le bouton droit ou deux doigts pour tourner la vue ; la molette pour zoomer.',
+        cols: ['Paris sous tous les angles : on tourne autour de Pierre, on voit les cours, l\'autre côté de Notre-Dame, les ruelles du dessus.', 'Les immeubles entre la caméra et Pierre se coupent en muret ; les rats et Pierre restent visibles à travers les murs, tramés. Plus de rat qui disparaît dans une rue étroite.', 'three.js 0.170.0 copié dans le dépôt (aucun CDN), des façades peintes par le générateur 2D sur les quatre côtés, des modèles 3D pour le mobilier et Notre-Dame.'] },
+      { title: 'L\'ancien moteur : le canvas 2D isométrique', live: '2d', tag: 'ancienne',
+        pitch: 'Le moteur d\'avant la v2.0.0, en direct : des images peintes pixel par pixel, posées en isométrique, un décor pré-calculé, la nuée écrite dans un tampon. Il reste le moteur de secours quand le navigateur n\'a pas de WebGL (?moteur=2d dans l\'adresse).',
+        cols: ['Le pixel art exact, peint à la main par le code : chaque pixel est voulu.', 'Une seule vue, au-dessus des toits ; les maisons devant Pierre se coupent au rez-de-chaussée pour qu\'on le voie.', 'Plus de développement : ses limites (pas de vraie caméra, lumière peinte, occultation faite à la main) sont la raison du passage à la 3D.'] },
     ],
   },
   {
@@ -475,7 +469,7 @@ function renderView() {
     import('./labo-3d.js?v=2.0.0').then(async m => {
       const host = $('live');
       const onStats = st => { const el = $('live-stats'); if (el) el.textContent = `${st.fps} images/s · ${st.rats} rats · simulation ${st.sim.toFixed(1)} ms · rendu ${st.draw.toFixed(1)} ms`; };
-      const mounted = v.live === '2d' ? await m.mount2D(host, { rats: 300 }) : await m.mount3D(host, { mode: v.live, rats: 300, onStats });
+      const mounted = v.live === '2d' ? await m.mount2D(host, { rats: 300 }) : await m.mount3D(host, { rats: 300, onStats });
       if (token !== liveToken) { mounted.dispose(); return; }
       live = mounted;
       host.querySelector('.v-loading')?.remove();
@@ -483,7 +477,7 @@ function renderView() {
         const tick = () => { if (live !== mounted) return; const st = mounted.game.stats; onStats({ fps: '—', rats: st.simulated, sim: st.ms.update, draw: st.ms.render }); setTimeout(tick, 1000); };
         tick();
       }
-    }).catch(err => { const el = $('live'); if (el) el.innerHTML = `<p class="v-loading">Impossible de charger le prototype : ${err.message}</p>`; });
+    }).catch(err => { const el = $('live'); if (el) el.innerHTML = `<p class="v-loading">Impossible de charger le moteur : ${err.message}</p>`; });
   }
   t0 = performance.now();
   $('view').scrollTop = 0;
@@ -505,8 +499,8 @@ document.addEventListener('click', e => {
 });
 addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea, select')) return;
-  // ZQSD / WASD restent au prototype en direct
-  if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) return;
+  // ZQSD / WASD, J et L restent au moteur en direct
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyJ', 'KeyL'].includes(e.code)) return;
   if (e.key === 'ArrowRight') { go(topic, variant + 1); e.preventDefault(); }
   else if (e.key === 'ArrowLeft') { go(topic, variant - 1); e.preventDefault(); }
   else if (e.key === 'ArrowDown') { go(topic + 1, 0); e.preventDefault(); }

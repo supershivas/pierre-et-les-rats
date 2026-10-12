@@ -131,6 +131,7 @@ body {
   pointer-events: none; transition: opacity 1.2s ease;
 }
 .gone { opacity: 0; }
+@media (max-width: 600px) { .hint { bottom: 96px; max-width: calc(100% - 32px); } }
 .play {
   position: absolute; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   width: 68px; height: 68px; border-radius: 50%;
@@ -139,6 +140,17 @@ body {
   cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent;
 }
 .play.on { border-color: var(--g-ocre); background: var(--g-nuit2); }
+/* La vue libre : deux boutons pour la faire tourner (en jeu seulement, avec le moteur 3D) */
+.rotate { position: absolute; left: 14px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; }
+body:not(.can-rotate) .rotate { display: none; }
+.rot-btn {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 24px;
+  background: var(--g-nuit); color: var(--g-ocre); border: 3px solid var(--g-nuit2);
+  cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.rot-btn:active { border-color: var(--g-ocre); background: var(--g-nuit2); }
+.rot-btn:focus-visible { outline: 2px solid var(--g-ocre); outline-offset: 3px; }
 .play:focus-visible { outline: 2px solid var(--g-ocre); outline-offset: 3px; }
 
 /* ── Écran d'accueil ── */

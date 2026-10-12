@@ -29,7 +29,7 @@ const PITCH_MIN = 0.28, PITCH_MAX = 1.25;
 const PPU_MIN = 0.4, PPU_MAX = 2.4;   // pixels d'écran par pixel du monde (le zoom)
 const FLAKES = 2400;
 
-export async function createGame3D({ canvas, city, save = null, onRats = () => {}, onMessage = () => {}, onProgress = () => {}, testRats = 0, mode = 'free', sandbox = false }) {
+export async function createGame3D({ canvas, city, save = null, onRats = () => {}, onMessage = () => {}, onProgress = () => {}, testRats = 0, sandbox = false }) {
   const THREE = await loadThree();
 
   // ─── Le rendu : petite résolution, agrandie sans lissage ───
@@ -38,16 +38,17 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.autoClear = false;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(PAL.nuit);
+  renderer.setClearColor(new THREE.Color(PAL.nuit), 1);
   const ghostScene = new THREE.Scene();           // ce qui se voit à travers les murs, tramé
+  const actors = new THREE.Scene();               // Pierre, les rats, les notes : dessinés après le décor et son double tramé
   const world = await buildWorld(THREE, city, { onProgress });
   scene.add(world.root);
   const camera = new THREE.PerspectiveCamera(FOV, 1, 4, 4000);
   const palSample = key => PAL_INDEX[key];
 
   let vw = 320, vh = 240, factor = 3, zoomPref = 0;
-  let ppu = mode === 'iso' ? 1.2 : 1.1;               // le zoom : pixels d'écran par pixel du monde
-  const cam = { yaw: Math.PI / 4, pitch: mode === 'iso' ? 0.61 : 0.62, tx: 0, tz: 0, ty: 14 };
+  let ppu = 1.1;               // le zoom : pixels d'écran par pixel du monde
+  const cam = { yaw: Math.PI / 4, pitch: 0.62, tx: 0, tz: 0, ty: 14 };
 
   // ─── État ───
   const start = save && Number.isFinite(save.x) ? [save.x, save.y] : [(city.start[0] + 0.5) * CELL, (city.start[1] + 0.5) * CELL];
@@ -202,7 +203,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   const ratMesh = new THREE.InstancedMesh(ratGeo, new THREE.MeshBasicMaterial({ vertexColors: true }), MAX_RATS);
   ratMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   ratMesh.frustumCulled = false; ratMesh.count = 0;
-  scene.add(ratMesh);
+  actors.add(ratMesh);
   // les rats derrière un mur, près de Pierre : des points clairs, tramés
   const DITHER = `if (mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) > 0.5) discard;`;
   const ghostRatMat = new THREE.ShaderMaterial({
@@ -262,7 +263,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     depthFunc: THREE.GreaterDepth, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   });
   const body = makePierre(mBody, mCoat, mFlute), ghost = makePierre(ghostPierreMat, ghostPierreMat, ghostPierreMat);
-  scene.add(body.g); ghostScene.add(ghost.g);
+  actors.add(body.g); ghostScene.add(ghost.g);
   function posePierre(p, t, playingNow) {
     const walk = pierre.moving ? Math.sin(pierre.t * 9) : 0;
     p.g.position.set(pierre.x, 0, pierre.y);
@@ -295,7 +296,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   const noteSprites = Array.from({ length: NOTE_POOL }, () => {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[0][0], alphaTest: 0.5, depthTest: false }));
     s.scale.set(4, 6, 1); s.visible = false; s.renderOrder = 20;
-    scene.add(s);
+    actors.add(s);
     return s;
   });
   function emitNote() {
@@ -415,16 +416,21 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     const tx = attract ? attractPoint.x : pierre.x, tz = attract ? attractPoint.z : pierre.y;
     const k = 1 - Math.exp(-dt * (attract ? 2 : 6));
     cam.tx += (tx - cam.tx) * k; cam.tz += (tz - cam.tz) * k;
+    // le zoom et l'inclinaison s'ajustent en douceur (l'accueil prend du recul)
+    const kz = 1 - Math.exp(-dt * 3);
+    view.ppu += ((attract ? 0.75 : ppu) - view.ppu) * (dt ? kz : 1);
+    view.pitch += ((attract ? 0.6 : cam.pitch) - view.pitch) * (dt ? kz : 1);
     // la distance qui donne ppu pixels d'écran par pixel du monde au point visé
-    const d = (vh / 2) / (Math.tan(FOV * Math.PI / 360) * ppu);
-    const cp = Math.cos(cam.pitch);
-    camera.position.set(cam.tx + Math.cos(cam.yaw) * cp * d, cam.ty + Math.sin(cam.pitch) * d, cam.tz + Math.sin(cam.yaw) * cp * d);
+    const d = (vh / 2) / (Math.tan(FOV * Math.PI / 360) * view.ppu);
+    const cp = Math.cos(view.pitch);
+    camera.position.set(cam.tx + Math.cos(cam.yaw) * cp * d, cam.ty + Math.sin(view.pitch) * d, cam.tz + Math.sin(cam.yaw) * cp * d);
     camera.lookAt(cam.tx, cam.ty, cam.tz);
     camera.updateMatrixWorld();
-    trMat.uniforms.size.value = Math.max(1, Math.round(ppu));
-    smMat.uniforms.size.value = Math.max(2, Math.round(ppu * 2));
+    trMat.uniforms.size.value = Math.max(1, Math.round(view.ppu));
+    smMat.uniforms.size.value = Math.max(2, Math.round(view.ppu * 2));
   }
   const attractPoint = { x: 0, z: 0 };
+  const view = { ppu, pitch: cam.pitch };
 
   // ─── La boucle ───
   function update(dt) {
@@ -451,18 +457,21 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   }
 
   let last = 0, raf = 0;
-  const perf = { update: 0, render: 0, rats: 0 };
+  const perf = { update: 0, render: 0, rats: 0, cuts: 0, paint: 0 };
   function render(dt) {
-    const t0 = performance.now();
     placeCamera(dt);
-    world.paintSome(attract ? 10 : 6, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y);
+    let t0 = performance.now();
+    world.paintSome(attract ? 5 : 3, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y);
+    perf.paint += (performance.now() - t0 - perf.paint) * 0.05; t0 = performance.now();
     const disc = 9 + Math.sqrt(swarm.count * 9 / Math.PI);
     world.updateCuts(camera, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y, Math.max(90, disc * 1.2 + 30), dt, !attract && !sandbox);
+    perf.cuts += (performance.now() - t0 - perf.cuts) * 0.05; t0 = performance.now();
     if (!attract) {
       posePierre(body, playing ? time : pierre.t, playing);
       posePierre(ghost, playing ? time : pierre.t, playing);
       updateRatMatrices();
     }
+    perf.rats += (performance.now() - t0 - perf.rats) * 0.05;
     body.g.visible = ghost.g.visible = !attract;
     ratMesh.visible = ghostRats.visible = !attract;
     ghostRatMat.uniforms.uP.value.set(pierre.x, pierre.y);
@@ -470,9 +479,9 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     flMat.uniforms.uT.value = time; flMat.uniforms.uC.value.set(cam.tx, 0, cam.tz);
     flushTraces();
     renderer.clear();
-    renderer.render(scene, camera);
-    if (!attract) renderer.render(ghostScene, camera);
-    perf.rats += (performance.now() - t0 - perf.rats) * 0.05;
+    renderer.render(scene, camera);                  // le décor
+    if (!attract) renderer.render(ghostScene, camera);   // Pierre et les rats, tramés là où le décor les cache
+    renderer.render(actors, camera);                 // Pierre, les rats, les notes
   }
   function frame(now) {
     raf = requestAnimationFrame(frame);
@@ -518,12 +527,33 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     return [o.x + d.x * t, o.z + d.z * t];
   }
 
+  // Une nouvelle partie, ou une partie reprise : le monde reste, Pierre et l'armée repartent
+  function reload(fromSave, rats = 0) {
+    const s = fromSave && Number.isFinite(fromSave.x) ? [fromSave.x, fromSave.y] : [(city.start[0] + 0.5) * CELL, (city.start[1] + 0.5) * CELL];
+    Object.assign(pierre, { x: s[0], y: s[1], vx: 0, vy: 0, heading: Math.PI / 2, moving: false, t: 0, stride: 0 });
+    if (solid(pierre.x, pierre.y)) Object.assign(pierre, nearestStreet(pierre.x, pierre.y));
+    cam.yaw = fromSave && Number.isFinite(fromSave.yaw) ? fromSave.yaw : Math.PI / 4;
+    cam.tx = pierre.x; cam.tz = pierre.y;
+    army = fromSave?.rats || 0; playTime = fromSave?.playSeconds || 0; playing = false; callTimer = 1.2;
+    input.target = null; input.hold = false;
+    swarm.clear(); notes.length = 0; smoke.length = 0;
+    trBorn.fill(-1); trHead = 0; trLen = 0; dirtyAll = true; dirtyFrom = 0;
+    if (rats > army) army = rats;
+    for (let k = 0; k < Math.min(army, MAX_RATS); k++) {
+      const a = Math.random() * Math.PI * 2, r = 6 + Math.sqrt(k) * 3 * Math.random();
+      let px = pierre.x + Math.cos(a) * r, py = pierre.y + Math.sin(a) * r;
+      if (blocked(px, py, 2)) { px = pierre.x; py = pierre.y; }
+      swarm.add(px, py);
+    }
+    onRats(army);
+  }
+
   resize();
   raf = requestAnimationFrame(frame);
   onProgress('');
 
   return {
-    input, resize, screenToWorld,
+    input, resize, screenToWorld, reload,
     canRotate: true,
     setZoom(z) { zoomPref = z; resize(); },
     orbit(dyaw, dpitch = 0) { cam.yaw += dyaw; cam.pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, cam.pitch + dpitch)); },

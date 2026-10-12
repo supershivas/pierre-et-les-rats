@@ -67,10 +67,10 @@ export function makeGroundColor(city, { quayWalls = true, pits: withPits = false
       }
       // l'eau noire, des glaçons qui dérivent
       const fx = Math.floor(wx / 9), fy = Math.floor(wy / 6);
-      if (hash3(fx, fy, 7) < 0.33) {
-        // un glaçon : blanc dessus, un bord sombre du côté de l'eau
+      if (hash3(fx, fy, 7) < (quayWalls ? 0.33 : 0.2)) {
+        // un glaçon : blanc dessus, un bord sombre du côté de l'eau (plus rares et plus sombres en 3D, où l'on voit loin)
         const edge = (wx % 9) < 1 || (wy % 6) < 1;
-        return edge ? 'neigeO' : n < 0.15 ? 'neigeM' : 'neige';
+        return edge ? 'neigeO' : n < 0.15 ? 'neigeM' : quayWalls || n < 0.4 ? 'neige' : 'neigeM';
       }
       return n < 0.06 ? 'ardoise' : 'nuit2';
     }
