@@ -9,10 +9,10 @@
    Repère du modèle : la façade à x = 0 (tournée vers −x), le chevet à
    x = L, la largeur le long de z ; y vers le haut. Puis tourné et posé selon
    `facing` (W, E, N, S : où regarde la façade). */
-import { PAL } from './palette.js?v=2.0.1';
-import { hash } from './city.js?v=2.0.1';
-import { createMesher, TONES } from './geo.js?v=2.0.1';
-import { CELL } from './scale.js?v=2.0.1';
+import { PAL } from './palette.js?v=2.1.0';
+import { hash } from './city.js?v=2.1.0';
+import { createMesher, TONES } from './geo.js?v=2.1.0';
+import { CELL } from './scale.js?v=2.1.0';
 
 const TOWER_H = 520, CENTER_H = 360, NAVE_H = 290, AISLE_H = 170, NAVE_RIDGE = 375, TRANSEPT_H = 250;
 

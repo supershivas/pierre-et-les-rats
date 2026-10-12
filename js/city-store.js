@@ -1,7 +1,7 @@
 /* Où vit le quartier : data/ville.json (publié dans le dépôt, la source de
    vérité) et, dans ce navigateur, le brouillon de l'atelier tant qu'il n'est
    pas publié. Le jeu lit le brouillon s'il y en a un, et le signale. */
-import { generateQuarter } from './city.js?v=2.0.1';
+import { generateQuarter } from './city.js?v=2.1.0';
 
 export const DRAFT_KEY = 'pierre:ville-brouillon';
 export const PUBLISHED_URL = 'data/ville.json';

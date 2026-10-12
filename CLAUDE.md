@@ -82,7 +82,7 @@ planche gardent les tokens du design system.
   les temps (ms).
 - `js/world3d.js` : le monde. **Le sol** : une texture d'un octet par pixel
   (indice de palette) lue par un shader qui lit la palette dans une texture de
-  9 × 1 ; l'eau à −14 px (un maillage à part : un motif de 144 × 96 qui se répète, lu en coordonnées du monde, avec un décalage dans le temps : la Seine coule), des murs de quai, des ponts à garde-corps de fonte. Un pont débouche toujours sur une rue (générateur et atelier). **Un immeuble** =
+  9 × 1 ; l'eau à −70 px (3,5 m ; un maillage à part : un motif de 144 × 96 qui se répète, lu en coordonnées du monde, avec un décalage dans le temps : la Seine coule), des murs de quai, des ponts à garde-corps de fonte. Un pont débouche toujours sur une rue (générateur et atelier). **Un immeuble** =
   une géométrie (4 murs, toit à la Mansart ou à deux pans selon les voisins,
   lucarnes, cheminées) + une texture d'indices de 4 faces côte à côte, peinte par
   `renderColumn` (buildings.js) : deux faces telles quelles, les deux autres en
@@ -93,6 +93,7 @@ planche gardent les tokens du design system.
   à l'écran (et visible à l'écran), recouvre le disque autour de lui, et qui est près de la droite caméra → Pierre (plus : celui où la caméra entre), tombe à `CUT_H` (le shader
   rabat tout ce qui est au-dessus, en 0,2 s). Les passages (`P`) sont de vrais
   tunnels (l'arche est du vide : l'indice 255 est jeté par le shader).
+  **Lumière** : les 16 réverbères les plus proches de la caméra (`setLights`, vacillants) éclairent sol, eau et façades par un halo doux calculé dans les shaders (`LIGHT_GLSL`, hors palette assumé). **Flou de profondeur** (game3d.js) : le monde est rendu dans une texture couleur + profondeur, un plan la relit en floutant selon l'écart à la distance de Pierre ; réglage « Flou de profondeur » (`prefs.blur`). Les façades ne se peignent que dans 1 700 px autour de Pierre.
 - `js/cathedral3d.js` : Notre-Dame, **un seul bloc** : tours, façade peinte,
   nef, bas-côtés, arcs-boutants, transept, flèche, chevet ; posé sur le rectangle
   des cases `N` (`city.cathedral`, façade du côté des cases les plus hautes).
@@ -139,11 +140,11 @@ planche gardent les tokens du design system.
   `city.reach` : les cases joignables depuis le départ (bouches d'égout et
   mobilier n'y vont que là). `city.cathedral` : { i0, j0, w, d, facing }.
   Le hasard déterministe `hash` (et `hash3`), le générateur `generateQuarter`
-  (**44 × 40**, v2.0.0) : la Seine d'ouest en est sur toute la largeur, large de
-  3 cases, partagée autour de l'île de la Cité (6 × 18 cases : vieilles
+  (**88 × 72**, v2.1.0) : la Seine d'ouest en est sur toute la largeur, large de
+  7 cases, partagée autour de l'île de la Cité (8 × 28 cases : vieilles
   maisons à l'ouest, parvis, **Notre-Dame 8 × 4 cases à l'est, façade à
-  l'ouest**) ; quais de 3 cases ; cinq ponts ; deux boulevards est-ouest et
-  deux nord-sud de 4 cases, droits ; des rues de 2 cases ; puis les îlots
+  l'ouest**) ; quais de 3 cases ; six ponts ; quatre boulevards est-ouest et
+  trois nord-sud de 4 cases, droits ; des rues de 2 cases ; trois squares ; puis les îlots
   restants : haussmanniens (deux cases d'épaisseur, 5 à 7 niveaux, une ruelle
   centrale avec des passages couverts) ou vieux quartier (ruelles d'une case,
   maisons de 1 à 4 niveaux, au sud-ouest et sur l'île) ; un îlot devient
@@ -168,7 +169,7 @@ planche gardent les tokens du design system.
   fenêtres irrégulières à volets, devanture de bois, toit à deux pans,
   lucarne à poulie), Notre-Dame (nef : contreforts, lancettes, toit raide ;
   tours : portail, galerie des rois, rose éclairée, abat-sons, balustrade).
-  Option `night` (le jeu) : au-dessus de 3,75 m la façade s'enfonce dans le
+  Option `night` (le jeu) : de 110 à 180 px (3e étage) la façade s'enfonce dans le
   noir (trame de Bayer selon la hauteur, `NIGHT_Z0`, `NIGHT_Z1`), sauf les
   fenêtres éclairées ; l'atelier dessine sans la nuit.
 - `js/ground.js` : le sol (2D : une grande image ; `makeGroundColor` donne la couleur de chaque pixel, aussi pour la texture 3D) : chaussée, trottoirs et leur

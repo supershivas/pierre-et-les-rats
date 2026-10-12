@@ -7,8 +7,8 @@
      { "w": 26, "h": 22, "seed": 1871, "start": [x, y],
        "rows": ["0023340…", …],   // un chiffre par colonne, 0 à 7
        "props": [["lamp", 315, 642, 0], …] }   // le mobilier : type, x, y (monde), variante */
-import { MAX_FLOORS } from './scale.js?v=2.0.1';
-import { generateProps } from './props.js?v=2.0.1';
+import { MAX_FLOORS } from './scale.js?v=2.1.0';
+import { generateProps } from './props.js?v=2.1.0';
 
 // Hasard déterministe : la même cellule donne toujours la même façade
 export function hash(...n) {
@@ -138,18 +138,19 @@ function findGrates(city) {
 }
 
 
-/* Paris en 1871, au bord de la Seine : le fleuve traverse tout le quartier
-   d'ouest en est et se partage autour de l'île de la Cité, où Notre-Dame
-   (un seul bloc, `N`) se dresse devant son parvis. Des quais plantés de
-   chaque côté, cinq ponts.
-   Deux grands boulevards est-ouest et deux nord-sud, droits, de 4 cases
+/* Paris en 1871, au bord de la Seine (88 × 72 cases, v2.1.0) : le fleuve, large de
+   7 cases, traverse tout le quartier d'ouest en est sans être coupé, à 70 px
+   (3,5 m) sous les quais ; il se partage autour de l'île de la Cité (28 × 8
+   cases), où Notre-Dame (un seul bloc, `N`) se dresse devant son parvis. Des
+   quais plantés de chaque côté, six ponts.
+   Quatre grands boulevards est-ouest et trois nord-sud, droits, de 4 cases
    (arbres, réverbères, bancs), bordés d'immeubles haussmanniens de 5 à 7
-   niveaux. Entre eux, des îlots : haussmanniens autour d'une ruelle
-   centrale (avec des passages couverts), ou « vieux quartier » de ruelles
-   d'une case entre des maisons basses (1 à 4 niveaux). Un îlot devient
-   square. Puis le mobilier urbain (props.js). */
-export function generateQuarter(seed = 1871, w = 44, h = 40) {
-  w = Math.max(36, w); h = Math.max(34, h);
+   niveaux ; des rues de 2 cases entre eux. Les îlots restants : haussmanniens
+   autour d'une ruelle centrale (avec des passages couverts), ou « vieux
+   quartier » de ruelles d'une case entre des maisons basses (1 à 4 niveaux).
+   Quelques îlots deviennent squares. Puis le mobilier urbain (props.js). */
+export function generateQuarter(seed = 1871, w = 88, h = 72) {
+  w = Math.max(60, w); h = Math.max(56, h);
   const r = rng(seed);
   // g : niveaux (−1 : bâti à décider) ; k : terrain
   const g = Array.from({ length: h }, () => new Array(w).fill(-1));
@@ -158,18 +159,17 @@ export function generateQuarter(seed = 1871, w = 44, h = 40) {
   const put = (x, y, kind, floors = 0) => { if (inb(x, y)) { k[y][x] = kind; g[y][x] = floors; } };
   const free = (x, y) => inb(x, y) && g[y][x] === -1;
 
-  const c = Math.round(h * 0.525);                       // l'axe de la Seine
-  const bN = Math.round(h * 0.125), bS = c + 10;         // les boulevards est-ouest (4 rangées)
-  const vb = [Math.round(w * 0.18), Math.round(w * 0.73)];  // les boulevards nord-sud (4 colonnes)
-  const ponts = [3, Math.round(w * 0.34), w - 5];        // des rues de 2 cases, avec un pont
-  const rueN = Math.round(w * 0.52);                     // une rue de 2 cases de chaque côté, sans pont
-  const ix0 = Math.round(w * 0.27), ix1 = ix0 + 17;      // l'île
+  const c = Math.round(h * 0.5);                          // l'axe de la Seine
+  const hb = [0.09, 0.24, 0.68, 0.83].map(f => Math.round(h * f));        // les boulevards est-ouest (4 rangées)
+  const vb = [0.18, 0.43, 0.76].map(f => Math.round(w * f));              // les boulevards nord-sud (4 colonnes)
+  const ponts = [0.05, 0.34, 0.91].map(f => Math.round(w * f));           // des rues de 2 cases, avec un pont
+  const ix0 = Math.round(w * 0.3), ix1 = ix0 + 27;        // l'île
   const onIsland = x => x >= ix0 && x <= ix1;
-  const waterN = x => (onIsland(x) ? c - 5 : c - 1), waterS = x => (onIsland(x) ? c + 4 : c + 1);
+  const waterN = x => (onIsland(x) ? c - 7 : c - 3), waterS = x => (onIsland(x) ? c + 6 : c + 3);
 
   // ─ La Seine, l'île, les quais ─
   for (let x = 0; x < w; x++) for (let y = waterN(x); y <= waterS(x); y++) put(x, y, '~');
-  for (let x = ix0; x <= ix1; x++) for (let y = c - 3; y <= c + 2; y++) { k[y][x] = '.'; g[y][x] = -1; }
+  for (let x = ix0; x <= ix1; x++) for (let y = c - 4; y <= c + 3; y++) { k[y][x] = '.'; g[y][x] = -1; }
   for (let x = 0; x < w; x++) {
     const xs = [Math.max(0, x - 1), x, Math.min(w - 1, x + 1)];
     const top = Math.min(...xs.map(waterN)), bottom = Math.max(...xs.map(waterS));
@@ -177,11 +177,11 @@ export function generateQuarter(seed = 1871, w = 44, h = 40) {
     for (let y = waterS(x) + 1; y <= bottom + 3; y++) put(x, y, 'B');
   }
   // ─ Les boulevards, droits ─
-  for (let x = 0; x < w; x++) for (const y0 of [bN, bS]) for (let y = y0; y < y0 + 4; y++) put(x, y, 'B');
+  for (let x = 0; x < w; x++) for (const y0 of hb) for (let y = y0; y < y0 + 4; y++) if (k[y][x] !== '~') put(x, y, 'B');
   for (const x0 of vb) for (let x = x0; x < x0 + 4; x++) for (let y = 0; y < h; y++) {
     if (k[y][x] === '~') put(x, y, '='); else put(x, y, 'B');
   }
-  // ─ Les rues de 2 cases : trois avec un pont, une sans ─
+  // ─ Les rues de 2 cases : avec un pont, ou (dans les grands vides) sans ─
   const rue = (x0, bridge) => {
     for (let x = x0; x < x0 + 2; x++) for (let y = 0; y < h; y++) {
       if (k[y][x] === '~') { if (bridge) put(x, y, '='); continue; }
@@ -190,15 +190,19 @@ export function generateQuarter(seed = 1871, w = 44, h = 40) {
     }
   };
   ponts.forEach(x0 => rue(x0, true));
-  rue(rueN, false);
+  const cols = [[0, 0], ...vb.map(x => [x, x + 3]), ...ponts.map(x => [x, x + 1]), [w - 1, w - 1]].sort((p, q) => p[0] - q[0]);
+  for (let i = 0; i + 1 < cols.length; i++) {
+    const a = cols[i][1] + 1, b = cols[i + 1][0] - 1;
+    if (b - a + 1 > 15) rue(Math.round((a + b) / 2) - 1, false);
+  }
 
   // ─ Notre-Dame : un bloc de 8 × 4 cases sur l'île, la façade à l'ouest, sur son parvis ─
   const nd0 = ix1 - 7;
-  for (let x = ix0; x <= ix1; x++) { put(x, c - 3, '.'); put(x, c + 2, '.'); }              // le tour de l'île
-  for (let x = nd0 - 3; x < nd0; x++) for (let y = c - 3; y <= c + 2; y++) put(x, y, '.');  // le parvis
-  for (let x = nd0; x <= ix1; x++) for (let y = c - 2; y <= c + 1; y++) put(x, y, 'N', 5);  // la nef et le chœur
-  for (const y of [c - 2, c + 1]) put(nd0, y, 'N', 8);                                       // les tours
-  for (const y of [c - 1, c]) put(nd0, y, 'N', 6);                                           // entre elles, la rose
+  for (let x = ix0; x <= ix1; x++) for (const y of [c - 4, c - 3, c + 2, c + 3]) put(x, y, '.');   // le tour de l'île
+  for (let x = nd0 - 4; x < nd0; x++) for (let y = c - 4; y <= c + 3; y++) put(x, y, '.');          // le parvis
+  for (let x = nd0; x <= ix1; x++) for (let y = c - 2; y <= c + 1; y++) put(x, y, 'N', 5);          // la nef et le chœur
+  for (const y of [c - 2, c + 1]) put(nd0, y, 'N', 8);                                              // les tours
+  for (const y of [c - 1, c]) put(nd0, y, 'N', 6);                                                  // entre elles, la rose
 
   // ─ Les îlots : ce qui reste à bâtir, par groupes de cases ─
   const blocks = [];
@@ -214,18 +218,23 @@ export function generateQuarter(seed = 1871, w = 44, h = 40) {
     }
     blocks.push(b);
   }
+  // les squares : trois îlots de taille moyenne, loin les uns des autres
+  const gardenSet = new Set();
   const gardens = [];
-  const garden = blocks
-    .filter(b => b.cells.length >= 15 && b.cells.length <= 40 && b.y1 < bN + 12 && b.x0 > vb[0] + 4 && b.x1 < vb[1])
-    .sort((p, q) => Math.abs((p.x0 + p.x1) / 2 - w * 0.45) - Math.abs((q.x0 + q.x1) / 2 - w * 0.45))[0];
+  for (const [fx, fy] of [[0.5, 0.2], [0.25, 0.8], [0.82, 0.78]]) {
+    const pick = blocks
+      .filter(b => !gardenSet.has(b) && b.cells.length >= 30 && b.cells.length <= 150 && !b.cells.every(([x]) => onIsland(x)) && b.cells.every(([, y]) => y < c - 8 || y > c + 8))
+      .sort((p, q) => Math.hypot((p.x0 + p.x1) / 2 - w * fx, (p.y0 + p.y1) / 2 - h * fy) - Math.hypot((q.x0 + q.x1) / 2 - w * fx, (q.y0 + q.y1) / 2 - h * fy))[0];
+    if (pick) gardenSet.add(pick);
+  }
 
   blocks.forEach((b, bi) => {
     const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1, minDim = Math.min(bw, bh);
     const mine = new Set(b.cells.map(([x, y]) => y * w + x));
     const inBlock = (x, y) => mine.has(y * w + x);
-    if (b === garden) { for (const [x, y] of b.cells) put(x, y, '.'); gardens.push(b); return; }
+    if (gardenSet.has(b)) { for (const [x, y] of b.cells) put(x, y, '.'); gardens.push(b); return; }
     const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-    const old = b.cells.every(([x, y]) => onIsland(x) && y >= c - 3 && y <= c + 2) || (cx < w * 0.5 && cy > c) || hash(bi, seed, 5) < 0.28;
+    const old = b.cells.every(([x, y]) => onIsland(x) && y >= c - 4 && y <= c + 3) || (cx < w * 0.45 && cy > c) || (cx > w * 0.72 && cy < c * 0.6) || hash(bi, seed, 5) < 0.26;
     // la distance de chaque case au bord de l'îlot (1 : contre une rue)
     const edge = new Map(), q = [];
     for (const [x, y] of b.cells) if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !inBlock(x + dx, y + dy))) { edge.set(y * w + x, 1); q.push([x, y]); }
@@ -255,10 +264,10 @@ export function generateQuarter(seed = 1871, w = 44, h = 40) {
             if (r() < 0.35) continue;
             // de la rue jusqu'à la ruelle, 2 cases ou plus de bâti : un passage couvert
             const path = [];
-            let s = lane + dir, open = false;
+            let s = lane + dir;
             for (; s >= span[0] && s <= span[1]; s += dir) { const [x, y] = cell(t, s); if (g[y][x] > 0 && k[y][x] === '.') path.push([x, y]); else break; }
             const [ex, ey] = cell(t, s);
-            open = inb(ex, ey) && g[ey][ex] === 0 && (k[ey][ex] === '.' || k[ey][ex] === 'B');
+            const open = inb(ex, ey) && g[ey][ex] === 0 && (k[ey][ex] === '.' || k[ey][ex] === 'B');
             if (open && path.length >= 2) for (const [x, y] of path) put(x, y, 'P', g[y][x]);
           }
         }
@@ -298,7 +307,7 @@ export function generateQuarter(seed = 1871, w = 44, h = 40) {
   }
 
   const rows = g.map(row => row.join('')), ground = k.map(row => row.join(''));
-  const data = { w, h, seed, start: [vb[0] + 2, bN + 2], rows, ground };
+  const data = { w, h, seed, start: [vb[1] + 2, hb[1] + 2], rows, ground };
   data.props = generateProps(makeCity(data), { gardens: gardens.map(b => b.cells) });
   return data;
 }

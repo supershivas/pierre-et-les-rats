@@ -1,5 +1,13 @@
 # Historique
 
+## 2.1.0 — 2026-10-12
+- Une ville près de quatre fois plus grande (88 × 72 cases) : quatre boulevards est-ouest, trois nord-sud, des rues, des squares, six ponts
+- La Seine fait sept cases de large, traverse toute la carte sans être coupée et coule à 3,5 m sous les quais ; des piles sous les ponts, des garde-corps sur les quais
+- De vrais halos de lumière, doux et vacillants, autour des réverbères (ils éclairent le sol, l'eau et les façades)
+- Un flou de profondeur autour de Pierre (une case à cocher dans les réglages)
+- Dès le 3e étage, les façades sont noires (sauf les fenêtres éclairées)
+- Les immeubles ne se baissent que s'ils cachent vraiment Pierre ou son armée à l'écran (silhouette exacte)
+
 ## 2.0.1 — 2026-10-12
 - Les immeubles ne se baissent plus que s'ils cachent vraiment Pierre à l'écran (plus de maisons coupées hors du champ)
 - La souris dirige Pierre : un clic droit perdu ne fait plus tourner la vue à la place

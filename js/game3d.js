@@ -8,15 +8,15 @@
    l'est, y (ici z pour three.js) vers le sud, le haut est y pour three.js.
    L'image est calculée en petite résolution (environ 250 px de haut) puis
    agrandie d'un facteur entier sans lissage : pixels nets, palette exacte. */
-import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.0.1';
-import { CELL } from './scale.js?v=2.0.1';
-import { loadThree } from './three-lib.js?v=2.0.1';
-import { buildWorld, tick } from './world3d.js?v=2.0.1';
-import { createSwarm, ST } from './swarm.js?v=2.0.1';
-import { PROP_TYPES } from './props.js?v=2.0.1';
-import { makeGroundColor } from './ground.js?v=2.0.1';
-import { hash } from './city.js?v=2.0.1';
-import { drawNote } from './sprites.js?v=2.0.1';
+import { PAL, PALETTE, PAL_INDEX } from './palette.js?v=2.1.0';
+import { CELL } from './scale.js?v=2.1.0';
+import { loadThree } from './three-lib.js?v=2.1.0';
+import { buildWorld, tick } from './world3d.js?v=2.1.0';
+import { createSwarm, ST } from './swarm.js?v=2.1.0';
+import { PROP_TYPES } from './props.js?v=2.1.0';
+import { makeGroundColor } from './ground.js?v=2.1.0';
+import { hash } from './city.js?v=2.1.0';
+import { drawNote } from './sprites.js?v=2.1.0';
 
 const WALK = 34, RUN = 64;            // px/s : 1,7 m/s et 3,2 m/s
 const PIERRE_R = 5;
@@ -46,7 +46,47 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   const camera = new THREE.PerspectiveCamera(FOV, 1, 4, 4000);
   const palSample = key => PAL_INDEX[key];
 
-  let vw = 320, vh = 240, factor = 3, zoomPref = 0;
+  let vw = 320, vh = 240, factor = 3, zoomPref = 0, blurOn = true;
+  /* Le flou de profondeur : le monde est rendu dans une texture (couleur + profondeur), puis un
+     plan la relit en floutant selon l'écart à la distance de Pierre */
+  let rt = null;
+  const dofScene = new THREE.Scene(), dofCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const dofMat = new THREE.ShaderMaterial({
+    uniforms: { tColor: { value: null }, tDepth: { value: null }, uTexel: { value: new THREE.Vector2(1, 1) }, uNear: { value: 4 }, uFar: { value: 4000 }, uFocus: { value: 300 } },
+    vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+    fragmentShader: `
+      uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 uTexel; uniform float uNear; uniform float uFar; uniform float uFocus;
+      varying vec2 vUv;
+      float lin(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
+      void main() {
+        vec3 col = texture2D(tColor, vUv).rgb;
+        float z = lin(texture2D(tDepth, vUv).r);
+        // net autour de Pierre, de plus en plus flou devant et derrière
+        float rad = clamp((abs(z - uFocus) / uFocus - 0.3) * 1.5, 0.0, 1.0) * 3.2;
+        if (rad > 0.2) {
+          vec3 sum = col; float n = 1.0;
+          for (int i = 0; i < 12; i++) {
+            float a = float(i) * 2.399, r = sqrt(float(i + 1) / 12.0) * rad;
+            vec2 uv = vUv + vec2(cos(a), sin(a)) * r * uTexel;
+            // un voisin bien plus proche que nous ne bave pas sur nous
+            float zn = lin(texture2D(tDepth, uv).r);
+            float wgt = zn < z - 0.15 * z ? 0.0 : 1.0;
+            sum += texture2D(tColor, uv).rgb * wgt; n += wgt;
+          }
+          col = sum / n;
+        }
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
+  dofScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), dofMat));
+  function makeTarget() {
+    rt?.dispose(); rt?.depthTexture?.dispose();
+    const depth = new THREE.DepthTexture(vw, vh); depth.type = THREE.UnsignedIntType;
+    rt = new THREE.WebGLRenderTarget(vw, vh, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: depth, depthBuffer: true });
+    dofMat.uniforms.tColor.value = rt.texture; dofMat.uniforms.tDepth.value = depth;
+    dofMat.uniforms.uTexel.value.set(1 / vw, 1 / vh);
+  }
   let ppu = 1.1;               // le zoom : pixels d'écran par pixel du monde
   const cam = { yaw: Math.PI / 4, pitch: 0.62, tx: 0, tz: 0, ty: 14 };
 
@@ -321,7 +361,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
   const NOTE_POOL = 20;
   const noteSprites = Array.from({ length: NOTE_POOL }, () => {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[0][0], alphaTest: 0.5, depthTest: false }));
-    s.scale.set(4, 6, 1); s.visible = false; s.renderOrder = 20;
+    s.scale.set(4, 6, 1); s.visible = false; s.renderOrder = 20; s.material.depthWrite = false;
     actors.add(s);
     return s;
   });
@@ -464,8 +504,8 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     if (attract) {
       attractT += dt;
       cam.yaw += dt * 0.045;
-      const R = CELL * 5, cx = city.w * CELL / 2, cz = city.h * CELL / 2;
-      attractPoint.x = cx + Math.cos(attractT * 0.035) * R * 1.6; attractPoint.z = cz + Math.sin(attractT * 0.035 * 0.8) * R;
+      const R = CELL * 7, nd = city.cathedral, cx = nd ? (nd.i0 + nd.w / 2) * CELL : city.w * CELL / 2, cz = nd ? (nd.j0 + nd.d / 2) * CELL : city.h * CELL / 2;
+      attractPoint.x = cx + Math.cos(attractT * 0.035) * R * 2; attractPoint.z = cz + Math.sin(attractT * 0.035 * 0.8) * R;
     } else {
       updatePierre(dt);
       if (playing) {
@@ -490,7 +530,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     world.paintSome(attract ? 5 : 3, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y);
     perf.paint += (performance.now() - t0 - perf.paint) * 0.05; t0 = performance.now();
     const disc = 9 + Math.sqrt(swarm.count * 9 / Math.PI);
-    world.updateCuts(camera, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y, Math.max(90, disc * 1.2 + 30), dt, !attract && !sandbox);
+    world.updateCuts(camera, attract ? attractPoint.x : pierre.x, attract ? attractPoint.z : pierre.y, Math.max(45, disc * 1.1 + 25), dt, !attract && !sandbox);
     perf.cuts += (performance.now() - t0 - perf.cuts) * 0.05; t0 = performance.now();
     if (!attract) {
       posePierre(body, playing ? time : pierre.t, playing);
@@ -501,13 +541,15 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     body.g.visible = ghost.g.visible = !attract;
     ratMesh.visible = ghostRats.visible = !attract;
     ghostRatMat.uniforms.uP.value.set(pierre.x, pierre.y);
-    trMat.uniforms.now.value = time; world.setTime(time);
+    trMat.uniforms.now.value = time; world.setTime(time); world.setLights(cam.tx, cam.tz, time);
     flMat.uniforms.uT.value = time; flMat.uniforms.uC.value.set(cam.tx, 0, cam.tz);
     flushTraces();
+    if (blurOn) { renderer.setRenderTarget(rt); dofMat.uniforms.uFocus.value = camera.position.distanceTo(new THREE.Vector3(cam.tx, cam.ty, cam.tz)); }
     renderer.clear();
     renderer.render(scene, camera);                  // le décor
     if (!attract) renderer.render(ghostScene, camera);   // Pierre et les rats, tramés là où le décor les cache
     renderer.render(actors, camera);                 // Pierre, les rats, les notes
+    if (blurOn) { renderer.setRenderTarget(null); renderer.clear(); renderer.render(dofScene, dofCam); }
   }
   function frame(now) {
     raf = requestAnimationFrame(frame);
@@ -534,6 +576,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     factor = factorFor(dw, dh);
     vw = Math.max(1, Math.ceil(dw / factor)); vh = Math.max(1, Math.ceil(dh / factor));
     renderer.setSize(vw, vh, false);
+    makeTarget();
     canvas.style.width = (vw * factor / dpr) + 'px';
     canvas.style.height = (vh * factor / dpr) + 'px';
     camera.aspect = vw / vh;
@@ -582,6 +625,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     input, resize, screenToWorld, reload,
     canRotate: true,
     setZoom(z) { zoomPref = z; resize(); },
+    setBlur(on) { blurOn = !!on; },
     orbit(dyaw, dpitch = 0) { cam.yaw += dyaw; cam.pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, cam.pitch + dpitch)); },
     zoomBy(k) { ppu = Math.max(PPU_MIN, Math.min(PPU_MAX, ppu * k)); },
     setPlaying(on) {
@@ -599,7 +643,7 @@ export async function createGame3D({ canvas, city, save = null, onRats = () => {
     snapshot: () => ({ x: Math.round(pierre.x * 10) / 10, y: Math.round(pierre.y * 10) / 10, dir: 1, rats: army, playSeconds: Math.round(playTime), yaw: Math.round(cam.yaw * 100) / 100 }),
     world, renderer, camera, cam, pierre, swarm, city,
     setPpu(v) { ppu = v; },            // pour les essais (hors des bornes du zoom)
-    destroy() { cancelAnimationFrame(raf); world.dispose(); renderer.dispose(); },
+    destroy() { cancelAnimationFrame(raf); world.dispose(); rt?.dispose(); renderer.dispose(); },
   };
 }
 export { tick };

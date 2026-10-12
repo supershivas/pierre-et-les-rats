@@ -14,36 +14,52 @@
      poupée).
    - Le mobilier : des instances de modèles (props3d.js).
    - Notre-Dame : un seul bloc (cathedral3d.js). */
-import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.0.1';
-import { CELL, FLOOR } from './scale.js?v=2.0.1';
-import { hash, hash3 } from './city.js?v=2.0.1';
-import { renderColumn } from './buildings.js?v=2.0.1';
-import { makeGroundColor } from './ground.js?v=2.0.1';
-import { createMesher, TONES } from './geo.js?v=2.0.1';
-import { buildPropGeometries } from './props3d.js?v=2.0.1';
-import { buildCathedral } from './cathedral3d.js?v=2.0.1';
-import { PROP_TYPES } from './props.js?v=2.0.1';
+import { PAL, PALETTE, PALETTE_RGB, PAL_INDEX } from './palette.js?v=2.1.0';
+import { CELL, FLOOR } from './scale.js?v=2.1.0';
+import { hash, hash3 } from './city.js?v=2.1.0';
+import { renderColumn } from './buildings.js?v=2.1.0';
+import { makeGroundColor } from './ground.js?v=2.1.0';
+import { createMesher, TONES } from './geo.js?v=2.1.0';
+import { buildPropGeometries } from './props3d.js?v=2.1.0';
+import { buildCathedral } from './cathedral3d.js?v=2.1.0';
+import { PROP_TYPES } from './props.js?v=2.1.0';
 
-export const WATER_Y = -14;                    // la Seine, 70 cm sous les quais
+export const WATER_Y = -70;                    // la Seine, 3,5 m (plus d'un étage) sous les quais
 const SLAB = 9;                                // l'épaisseur d'un tablier de pont
 const MAX_CUT_DIST = 900;
 const CUT_H = 24;                              // un immeuble coupé : un muret de 1,2 m, plus bas que Pierre
 
+
+// La lumière des réverbères les plus proches (16 au plus, mise à jour par setLights) : un halo doux,
+// pas tramé, qui éclaire le sol, l'eau et les façades
+const LIGHT_GLSL = `
+uniform vec4 uL[16];
+vec3 lighten(vec3 c, vec3 p) {
+  float k = 0.0;
+  for (int i = 0; i < 16; i++) {
+    vec4 l = uL[i];
+    if (l.w > 0.0) { float t = clamp(1.0 - length(p - vec3(l.x, 62.0, l.y)) / l.z, 0.0, 1.0); k += l.w * t * t; }
+  }
+  k = min(k, 1.2);
+  return min(vec3(1.0), c * (1.0 + 1.35 * k) + vec3(0.05, 0.06, 0.08) * k);
+}`;
+
 // ─── Les shaders : des indices de palette ───
 const GROUND_VS = `
-varying vec2 vUv;
-void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+varying vec2 vUv; varying vec3 vP;
+void main() { vUv = uv; vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const INDEXED_FS = `
 uniform sampler2D map; uniform sampler2D pal; uniform float palN;
-varying vec2 vUv;
+${LIGHT_GLSL}
+varying vec2 vUv; varying vec3 vP;
 void main() {
   float i = floor(texture2D(map, vUv).r * 255.0 + 0.5);
-  gl_FragColor = vec4(texture2D(pal, vec2((i + 0.5) / palN, 0.5)).rgb, 1.0);
+  gl_FragColor = vec4(lighten(texture2D(pal, vec2((i + 0.5) / palN, 0.5)).rgb, vP), 1.0);
 }`;
 const BUILD_VS = `
 attribute vec3 aCol; attribute float aMode; attribute float aRoof;
 uniform float uCut; uniform float uH;
-varying vec2 vUv; varying vec3 vCol; varying float vMode;
+varying vec2 vUv; varying vec3 vCol; varying float vMode; varying vec3 vP;
 void main() {
   vec3 p = position;
   // la coupe : au-dessus de CUT_H (un muret plus bas que Pierre), tout descend dessus
@@ -52,12 +68,13 @@ void main() {
   if (aMode > 2.5) y2 += 0.1;                 // le liseré, juste au-dessus de la tranche
   p.y = y2;
   vUv = vec2(uv.x, y2 / uH);
-  vCol = aCol; vMode = aMode;
+  vCol = aCol; vMode = aMode; vP = (modelMatrix * vec4(p, 1.0)).xyz;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
 }`;
 const BUILD_FS = `
 uniform sampler2D map; uniform sampler2D pal; uniform float palN; uniform float uCut; uniform vec3 uSlice;
-varying vec2 vUv; varying vec3 vCol; varying float vMode;
+${LIGHT_GLSL}
+varying vec2 vUv; varying vec3 vCol; varying float vMode; varying vec3 vP;
 void main() {
   vec3 c = vCol;
   if (vMode < 0.5) {
@@ -66,7 +83,7 @@ void main() {
     c = texture2D(pal, vec2((i + 0.5) / palN, 0.5)).rgb;
   } else if (vMode > 1.5 && vMode < 2.5 && uCut > 0.02) c = uSlice;
   else if (vMode > 2.5 && uCut < 0.02) discard;
-  gl_FragColor = vec4(c, 1.0);
+  gl_FragColor = vec4(lighten(c, vP), 1.0);
 }`;
 
 // Cède la main au navigateur de temps en temps (le chargement ne fige pas l'écran)
@@ -127,7 +144,8 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     }
     if ((y & 31) === 0) await tick();
   }
-  const groundMat = new THREE.ShaderMaterial({ uniforms: { map: { value: byteTexture(gdata, GW, GH) }, pal: { value: palTex }, palN: { value: PALETTE.length } }, vertexShader: GROUND_VS, fragmentShader: INDEXED_FS });
+  const lightU = { value: Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 1, 0)) };
+  const groundMat = new THREE.ShaderMaterial({ uniforms: { map: { value: byteTexture(gdata, GW, GH) }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU }, vertexShader: GROUND_VS, fragmentShader: INDEXED_FS });
   {
     const pos = [], uv = [];
     const quad = (x0, z0, y, u0, v0) => {
@@ -166,18 +184,19 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     const wg = new THREE.BufferGeometry();
     wg.setAttribute('position', new THREE.Float32BufferAttribute(wpos, 3));
     waterMat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: wtex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uT: { value: 0 }, uBase: { value: PAL_INDEX.nuit2 }, uFleck: { value: PAL_INDEX.neigeO } },
-      vertexShader: `varying vec2 vW; void main() { vW = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      uniforms: { map: { value: wtex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uT: { value: 0 }, uBase: { value: PAL_INDEX.nuit2 }, uFleck: { value: PAL_INDEX.neigeO } },
+      vertexShader: `varying vec2 vW; varying vec3 vP; void main() { vW = position.xz; vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
       fragmentShader: `
         uniform sampler2D map; uniform sampler2D pal; uniform float palN; uniform float uT; uniform float uBase; uniform float uFleck;
-        varying vec2 vW;
+        ${LIGHT_GLSL}
+        varying vec2 vW; varying vec3 vP;
         void main() {
           vec2 sz = vec2(${WW}.0, ${WH}.0);
           float a = floor(texture2D(map, floor(vW + vec2(uT * 5.0, sin(uT * 0.4) * 2.0)) / sz).r * 255.0 + 0.5);
           float b = floor(texture2D(map, floor(vW * vec2(1.0, 1.3) + vec2(31.0 - uT * 3.0, 17.0 + uT * 1.5)) / sz).r * 255.0 + 0.5);
           // des rides qui luisent là où l'eau est nue
           if (abs(a - uBase) < 0.5 && abs(b - uBase) > 0.5 && abs(b - uFleck) > 0.5 && mod(floor(vW.x * 0.5 + vW.y + uT * 2.0), 7.0) < 1.0) a = uFleck;
-          gl_FragColor = vec4(texture2D(pal, vec2((a + 0.5) / palN, 0.5)).rgb, 1.0);
+          gl_FragColor = vec4(lighten(texture2D(pal, vec2((a + 0.5) / palN, 0.5)).rgb, vP), 1.0);
         }`,
     });
     const water = new THREE.Mesh(wg, waterMat);
@@ -188,6 +207,14 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
   // ─── Les quais et les ponts ───
   {
     const m = createMesher(THREE);
+    const kindIs = (x, y, kk) => city.kind(x, y) === kk;
+    // un garde-corps de fonte sur un petit soubassement de pierre : des barreaux, deux lisses, la neige dessus
+    const rail = (mm, ex, ez, dx, dz) => {
+      mm.box(ex, 0, ez, dx ? 3.2 : CELL, 3, dz ? 3.2 : CELL, TONES.stone, { up: 'neige' });
+      mm.box(ex, 11, ez, dx ? 1.6 : CELL, 1.4, dz ? 1.6 : CELL, TONES.iron, { up: 'neige' });
+      mm.box(ex, 6, ez, dx ? 1 : CELL, 1, dz ? 1 : CELL, TONES.iron);
+      for (let t = -27; t <= 27; t += 6) mm.box(ex + (dx ? 0 : t), 3, ez + (dz ? 0 : t), 1.2, t % 18 === 0 || Math.abs(t) === 27 ? 9 : 8, 1.2, TONES.black, { fixed: 'nuit' });
+    };
     for (let j = 0; j < city.h; j++) for (let i = 0; i < city.w; i++) {
       const k = city.kind(i, j), cx = (i + 0.5) * CELL, cz = (j + 0.5) * CELL;
       if (k === '~') continue;
@@ -197,6 +224,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
           if (!waterAt(i + dx, j + dz)) continue;
           const bx = cx + dx * (CELL / 2 - 2), bz = cz + dz * (CELL / 2 - 2);
           m.box(bx, WATER_Y, bz, dx ? 4 : CELL, -WATER_Y - 0.4, dz ? 4 : CELL, TONES.stone);
+          rail(m, bx, bz, dx, dz);
         }
         continue;
       }
@@ -204,13 +232,11 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
       m.box(cx, -SLAB, cz, CELL, SLAB - 0.4, CELL, TONES.stone);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         if (!waterAt(i + dx, j + dz)) continue;
-        // un garde-corps de fonte sur un petit soubassement de pierre : des barreaux, deux lisses, la neige dessus
-        const ex = cx + dx * (CELL / 2 - 2), ez = cz + dz * (CELL / 2 - 2), lx = dx ? 3.2 : CELL, lz = dz ? 3.2 : CELL;
-        m.box(ex, 0, ez, lx, 3, lz, TONES.stone, { up: 'neige' });
-        m.box(ex, 11, ez, dx ? 1.6 : CELL, 1.4, dz ? 1.6 : CELL, TONES.iron, { up: 'neige' });
-        m.box(ex, 6, ez, dx ? 1 : CELL, 1, dz ? 1 : CELL, TONES.iron);
-        for (let t = -27; t <= 27; t += 6) m.box(ex + (dx ? 0 : t), 3, ez + (dz ? 0 : t), 1.2, t % 18 === 0 || Math.abs(t) === 27 ? 9 : 8, 1.2, TONES.black, { fixed: 'nuit' });
+        rail(m, cx + dx * (CELL / 2 - 2), cz + dz * (CELL / 2 - 2), dx, dz);
       }
+      // des piles sous le tablier, toutes les trois cases, sur toute la largeur du pont
+      const along = kindIs(i - 1, j, '=') || kindIs(i + 1, j, '=') ? i : j;
+      if (along % 3 === 0) m.box(cx, WATER_Y, cz, kindIs(i - 1, j, '=') || kindIs(i + 1, j, '=') ? 12 : CELL, -WATER_Y - SLAB, kindIs(i - 1, j, '=') || kindIs(i + 1, j, '=') ? CELL : 12, TONES.stone);
     }
     const mesh = new THREE.Mesh(m.geometry(), new THREE.MeshBasicMaterial({ vertexColors: true }));
     root.add(mesh);
@@ -358,7 +384,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     g.setAttribute('aRoof', new THREE.Float32BufferAttribute(roofF, 1));
     g.computeBoundingSphere();
     const mat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: flatTex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uCut: { value: 0 }, uH: { value: H }, uSlice: { value: new THREE.Color(PAL.nuit2) } },
+      uniforms: { map: { value: flatTex }, pal: { value: palTex }, palN: { value: PALETTE.length }, uL: lightU, uCut: { value: 0 }, uH: { value: H }, uSlice: { value: new THREE.Color(PAL.nuit2) } },
       vertexShader: BUILD_VS, fragmentShader: BUILD_FS, side: THREE.FrontSide,
     });
     const mesh = new THREE.Mesh(g, mat);
@@ -411,30 +437,33 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
       root.add(mesh);
     }
   }
-  // le rond de lumière d'un réverbère, tramé, posé sur le sol
-  {
-    const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-    const R = 100, pool = document.createElement('canvas'); pool.width = pool.height = R * 2;
-    const pg = pool.getContext('2d');
-    for (let y = 0; y < R * 2; y++) for (let x = 0; x < R * 2; x++) {
-      const t = Math.max(0, 1 - Math.hypot(x - R + 0.5, y - R + 0.5) / R) * 1.7, v = t * 16, b = BAYER[(y % 4) * 4 + (x % 4)];
-      if (v > b + 7) { pg.fillStyle = PAL.neigeM; pg.fillRect(x, y, 1, 1); }
-      else if (v > b + 1) { pg.fillStyle = PAL.neigeO; pg.fillRect(x, y, 1, 1); }
-    }
-    const t = nearest(new THREE.CanvasTexture(pool));
-    const poolMat = new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.5, depthWrite: false });
-    const geo = new THREE.PlaneGeometry(R * 2, R * 2); geo.rotateX(-Math.PI / 2);
-    const mesh = new THREE.InstancedMesh(geo, poolMat, Math.max(1, lamps.length));
-    const dummy = new THREE.Object3D();
-    lamps.forEach(([x, z], k) => { dummy.position.set(x, 0.25, z); dummy.updateMatrix(); mesh.setMatrixAt(k, dummy.matrix); });
-    mesh.count = lamps.length;
-    mesh.frustumCulled = false;
-    root.add(mesh);
-  }
   void mats;
 
   // ─── La coupe : les immeubles qui cachent les abords de Pierre ───
   const vp = new THREE.Matrix4();
+  // La silhouette projetée d'un immeuble (l'enveloppe convexe de ses 8 coins) touche-t-elle le rectangle ?
+  function hullHits(b, c, x0, y0, x1, y1) {
+    const e = vp.elements, pts = [];
+    for (let k = 0; k < c.length; k += 3) {
+      const w = e[3] * c[k] + e[7] * c[k + 1] + e[11] * c[k + 2] + e[15];
+      pts.push([(e[0] * c[k] + e[4] * c[k + 1] + e[8] * c[k + 2] + e[12]) / w, (e[1] * c[k] + e[5] * c[k + 1] + e[9] * c[k + 2] + e[13]) / w]);
+    }
+    pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    const cross = (o, a, bb) => (a[0] - o[0]) * (bb[1] - o[1]) - (a[1] - o[1]) * (bb[0] - o[0]);
+    const lo = [], up = [];
+    for (const p of pts) { while (lo.length > 1 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    for (const p of [...pts].reverse()) { while (up.length > 1 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    const hull = lo.slice(0, -1).concat(up.slice(0, -1));
+    const rect = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    for (let i = 0; i < hull.length; i++) {
+      const a = hull[i], bb = hull[(i + 1) % hull.length], nx = bb[1] - a[1], ny = a[0] - bb[0];
+      let hmin = Infinity, hmax = -Infinity, rmin = Infinity, rmax = -Infinity;
+      for (const p of hull) { const d = p[0] * nx + p[1] * ny; hmin = Math.min(hmin, d); hmax = Math.max(hmax, d); }
+      for (const p of rect) { const d = p[0] * nx + p[1] * ny; rmin = Math.min(rmin, d); rmax = Math.max(rmax, d); }
+      if (rmax < hmin || rmin > hmax) return false;
+    }
+    return true;
+  }
   /* Chaque image : un immeuble entre la caméra et Pierre, dont la silhouette
      (la boîte, projetée à l'écran) recouvre le disque de rayon `radius`
      autour de Pierre, est coupé au rez-de-chaussée. cutting : false rend tout. */
@@ -472,7 +501,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
             bx0 = Math.min(bx0, o[0]); bx1 = Math.max(bx1, o[0]); by0 = Math.min(by0, o[1]); by1 = Math.max(by1, o[1]);
           }
           // … et qui se voit à l'écran (un immeuble hors du champ ne baisse pas)
-          if (!behind && bx0 < x1 && bx1 > x0 && by0 < y1 && by1 > y0 && bx1 > -1 && bx0 < 1 && by1 > -1 && by0 < 1) want = 1;
+          if (!behind && bx0 < x1 && bx1 > x0 && by0 < y1 && by1 > y0 && bx1 > -1 && bx0 < 1 && by1 > -1 && by0 < 1 && hullHits(b, c, x0, y0, x1, y1)) want = 1;
         }
       }
       b.target = want;
@@ -495,6 +524,7 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     const t0 = performance.now();
     do {
       const b = queue[queue.length - 1];
+      if ((b.cx - px) ** 2 + (b.cz - pz) ** 2 > 1700 * 1700) break;      // les lointains attendent qu'on s'en approche
       b.step();
       if (b.done()) queue.pop();
     } while (queue.length && performance.now() - t0 < budgetMs);
@@ -505,5 +535,16 @@ export async function buildWorld(THREE, city, { onProgress = () => {} } = {}) {
     root.traverse(o => { o.geometry?.dispose?.(); if (o.material) { for (const mt of [].concat(o.material)) { for (const u of Object.values(mt.uniforms || {})) u.value?.dispose?.(); mt.map?.dispose?.(); mt.dispose(); } } });
   };
   const setTime = t => { if (waterMat) waterMat.uniforms.uT.value = t; };
-  return { root, buildings, chimneys, lamps, palTex, indexOfRGB, updateCuts, paintSome, setTime, dispose };
+  // Les 16 réverbères les plus proches de (x, z), qui vacillent un peu : une lumière dynamique
+  let lightAt = -1;
+  function setLights(x, z, t) {
+    if (t - lightAt > 0.2) {
+      lightAt = t;
+      const near = lamps.map(([lx, lz], i) => [lx, lz, i, (lx - x) ** 2 + (lz - z) ** 2]).filter(l => l[3] < 700 * 700).sort((p, q) => p[3] - q[3]).slice(0, 16);
+      lightU.value.forEach((v, k) => { const l = near[k]; if (l) v.set(l[0], l[1], 230, 1); else v.w = 0; });
+      lightU.near = near;
+    }
+    (lightU.near || []).forEach((l, k) => { lightU.value[k].w = 0.9 + 0.1 * Math.sin(t * 7 + l[2] * 1.7) * Math.sin(t * 3.1 + l[2]); });
+  }
+  return { root, buildings, chimneys, lamps, palTex, indexOfRGB, updateCuts, paintSome, setTime, setLights, dispose };
 }

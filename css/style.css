@@ -257,3 +257,6 @@ body:not(.can-rotate) .rotate { display: none; }
   .hint { bottom: 100px; max-width: calc(100% - 32px); font-size: .9rem; }
   .hud-count { font-size: 1rem; }
 }
+
+.field-check { display: flex; flex-direction: row; align-items: center; gap: 10px; min-height: 44px; }
+.field-check input { width: 22px; height: 22px; }

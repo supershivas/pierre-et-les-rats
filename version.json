@@ -1,9 +1,9 @@
 {
-  "version": "2.0.1",
+  "version": "2.1.0",
   "date": "2026-10-12",
   "changes": [
-    "Les maisons ne se baissent plus que si elles cachent vraiment Pierre à l'écran ; la souris dirige Pierre (le clic droit seul tourne la vue)",
-    "Plus de lumière : ombres tramées, façades moins noires, larges halos de réverbère ; la Seine coule",
-    "Garde-corps de fonte sur les ponts, une rue au bout de chaque pont ; Pierre tient sa flûte à deux mains"
+    "Une ville près de quatre fois plus grande : quatre boulevards est-ouest, trois nord-sud, des squares ; la Seine, sept cases de large, tout le long, à 3,5 m sous les quais, avec des piles sous les ponts",
+    "Des halos de lumière doux et dynamiques autour des réverbères, un flou de profondeur (réglable) ; dès le 3e étage, les façades sont noires",
+    "Les immeubles ne s'abaissent plus que s'ils cachent vraiment Pierre"
   ]
 }

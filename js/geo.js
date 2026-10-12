@@ -3,7 +3,7 @@
    cônes, des prismes, et colore chaque triangle d'après son orientation (trois
    tons : éclairé par la lune, mi-ombre, ombre ; le dessus peut être sous la
    neige). Le résultat est une seule géométrie à couleurs de sommets. */
-import { PAL } from './palette.js?v=2.0.1';
+import { PAL } from './palette.js?v=2.1.0';
 
 // d'où vient la lumière : du ciel, un peu du côté +z (le sud, comme dans le dessin 2D)
 const LIGHT = (() => { const l = [-0.3, 0.7, 0.65], n = Math.hypot(...l); return l.map(v => v / n); })();

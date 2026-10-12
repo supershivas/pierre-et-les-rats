@@ -1,12 +1,12 @@
 /* L'app : l'en-tête, l'écran d'accueil, le prologue, le HUD, les commandes
    (clavier et pouce), les réglages, la sauvegarde et la mise à jour. */
-import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=2.0.1';
-import { makeCity } from './city.js?v=2.0.1';
-import { loadCity, readDraft } from './city-store.js?v=2.0.1';
-import { createGame } from './game.js?v=2.0.1';
-import { makeFlute } from './audio.js?v=2.0.1';
-import { MOVE, keyIs, stopTypeahead } from './keys.js?v=2.0.1';
-import { attachPointer } from './controls.js?v=2.0.1';
+import { startUpdateCheck, loadVersion, loadChangelog, downloadJSON } from './app-update.js?v=2.1.0';
+import { makeCity } from './city.js?v=2.1.0';
+import { loadCity, readDraft } from './city-store.js?v=2.1.0';
+import { createGame } from './game.js?v=2.1.0';
+import { makeFlute } from './audio.js?v=2.1.0';
+import { MOVE, keyIs, stopTypeahead } from './keys.js?v=2.1.0';
+import { attachPointer } from './controls.js?v=2.1.0';
 
 const SAVE_KEY = 'pierre:partie';
 const PREFS_KEY = 'pierre:prefs';
@@ -15,7 +15,7 @@ const $ = id => document.getElementById(id);
 const readJSON = (k, d) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch { return d; } };
 const writeJSON = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch { /* plein ou bloqué */ } };
 
-const prefs = { music: 70, zoom: 0, ...readJSON(PREFS_KEY, {}) };
+const prefs = { music: 70, zoom: 0, blur: true, ...readJSON(PREFS_KEY, {}) };
 const savePrefs = () => writeJSON(PREFS_KEY, prefs);
 
 // ─── Toast ───
@@ -57,12 +57,13 @@ async function newGameObject(fromSave) {
   game = null;
   if (use3d) {
     try {
-      const { createGame3D } = await import('./game3d.js?v=2.0.1');
+      const { createGame3D } = await import('./game3d.js?v=2.1.0');
       game = await createGame3D({ ...options, onProgress: setLoading });
     } catch (err) { console.warn('Moteur 3D indisponible, retour au moteur 2D :', err); use3d = false; }
   }
   game ||= createGame(options);
   game.setZoom(prefs.zoom);
+  game.setBlur?.(prefs.blur);
   document.body.classList.toggle('can-rotate', !!game.canRotate);
   updateCount(game.army);
 }
@@ -233,6 +234,7 @@ function openSettings() {
   $('stat-time').textContent = Math.floor((game.snapshot().playSeconds || 0) / 60);
   $('opt-music').value = prefs.music;
   $('opt-zoom').value = String(prefs.zoom);
+  $('opt-blur').checked = prefs.blur;
   resetNewGameButton();
   if (!settings.open) settings.showModal();
 }
@@ -243,6 +245,7 @@ $('open-settings').addEventListener('click', openSettings);
 $('close-settings').addEventListener('click', closeSettings);
 $('opt-music').addEventListener('input', e => { prefs.music = +e.target.value; flute.setVolume(prefs.music / 100); savePrefs(); });
 $('opt-zoom').addEventListener('change', e => { prefs.zoom = +e.target.value; game.setZoom(prefs.zoom); savePrefs(); });
+$('opt-blur').addEventListener('change', e => { prefs.blur = e.target.checked; game.setBlur?.(prefs.blur); savePrefs(); });
 function resetNewGameButton() {
   const b = $('new-game');
   b.classList.remove('confirm');

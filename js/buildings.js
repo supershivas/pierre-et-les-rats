@@ -35,9 +35,9 @@
    (a + b) / 2 − z. Dans l'image d'une colonne, le coin avant au sol est en
    (CELL, H − 1). Face A : le mur du côté +y (à gauche à l'écran, éclairé) ;
    face B : le mur du côté +x (à droite, à l'ombre). */
-import { RGB } from './palette.js?v=2.0.1';
-import { CELL, FLOOR, ROOF } from './scale.js?v=2.0.1';
-import { hash } from './city.js?v=2.0.1';
+import { RGB } from './palette.js?v=2.1.0';
+import { CELL, FLOOR, ROOF } from './scale.js?v=2.1.0';
+import { hash } from './city.js?v=2.1.0';
 
 const CHIMNEY_H = 16;
 export const COLUMN_W = CELL * 2 + 1;
@@ -50,7 +50,7 @@ const gableZ = d => d * 1.2;
 const naveZ = d => d * 2;
 
 // La nuit qui tombe des étages : claire jusqu'à NIGHT_Z0, noire vers NIGHT_Z1
-const NIGHT_Z0 = 130, NIGHT_Z1 = 440;
+const NIGHT_Z0 = 110, NIGHT_Z1 = 180;
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 // Tons par face : A éclairée, B à l'ombre
@@ -79,7 +79,7 @@ export function renderColumn(city, i, j, { night = false, all = false, roof = tr
   const put = (x, y, key, z = 0) => {
     if (x < 0 || y < 0 || x >= W || y >= H || !key) return;
     if (night && key !== 'ocre' && z > NIGHT_Z0) {
-      const t = Math.min(1, (z - NIGHT_Z0) / (NIGHT_Z1 - NIGHT_Z0)) * 0.8;
+      const t = Math.min(1, (z - NIGHT_Z0) / (NIGHT_Z1 - NIGHT_Z0));
       if (t * 16 > BAYER[(z & 3) * 4 + (x & 3)]) key = 'nuit';
     }
     const o = (y * W + x) * 4, c = RGB[key];
